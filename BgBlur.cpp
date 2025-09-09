@@ -300,7 +300,7 @@ void BgBlur::obs_defaults(obs_data_t *settings)
 	obs_data_set_default_double(settings, "smooth_contour", 0.5);
 	obs_data_set_default_double(settings, "feather", 0.0);
 	obs_data_set_default_string(settings, "useGPU", USEGPU_DML);
-	obs_data_set_default_string(settings, "model_select", MODEL_MEDIAPIPE);
+	obs_data_set_default_string(settings, "model_select", MODEL_RVM);
 	obs_data_set_default_int(settings, "mask_every_x_frames", 1);
 	obs_data_set_default_int(settings, "blur_background", 0);
 	obs_data_set_default_int(settings, "numThreads", 1);
@@ -325,7 +325,6 @@ obs_properties_t *BgBlur::obs_properties(void *data)
 	obs_property_list_add_string(p_model_select, "Very Fast / Low Quality (Selfie Segmentation)", MODEL_SELFIE);
 	obs_property_list_add_string(p_model_select, "Balanced (PPHumanSeg, CPU)", MODEL_PPHUMANSEG);
 	obs_property_list_add_string(p_model_select, "Best Quality (Robust Video Matting, GPU)", MODEL_RVM);
-	obs_property_list_add_string(p_model_select, "Sharp Cutout (RMBG, GPU recommended)", MODEL_RMBG);
 	obs_property_list_add_string(p_model_select, "Legacy / Slow (SINet, CPU)", MODEL_SINET);
 	obs_property_list_add_string(p_model_select, "Experimental Depth Blur (TCMonoDepth)", MODEL_DEPTH_TCMONODEPTH);
 

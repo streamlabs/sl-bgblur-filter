@@ -45,7 +45,6 @@ protected:
 	#define MODEL_RVM "models/rvm_mobilenetv3_fp32.onnx"
 	#define MODEL_PPHUMANSEG "models/pphumanseg_fp32.onnx"
 	#define MODEL_DEPTH_TCMONODEPTH "models/tcmonodepth_tcsmallnet_192x320.onnx"
-	#define MODEL_RMBG "models/bria_rmbg_1_4_qint8.onnx"
 	 
 	#define USEGPU_CPU "cpu"
 	#define USEGPU_DML "dml"
