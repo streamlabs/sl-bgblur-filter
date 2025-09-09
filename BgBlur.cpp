@@ -387,8 +387,8 @@ void BgBlur::obs_update_settings(void *data, obs_data_t *settings)
 			filterD->model = std::make_unique<ModelPPHumanSeg>();
 		else if(filterD->modelSelection == MODEL_DEPTH_TCMONODEPTH)
 			filterD->model = std::make_unique<ModelTCMonoDepth>();
-		else if(filterD->modelSelection == MODEL_RMBG)
-			filterD->model = std::make_unique<ModelRMBG>();
+		//else if(filterD->modelSelection == MODEL_RMBG)
+		//	filterD->model = std::make_unique<ModelRMBG>();
 		else
 			blog(LOG_WARNING, "BgBlur::updateSettings modelSelection = %s", filterD->modelSelection.c_str());
 

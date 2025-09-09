@@ -32,12 +32,6 @@ add_custom_command(TARGET sl-bgblur-filter POST_BUILD
 
 add_custom_command(TARGET sl-bgblur-filter POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-       "${_this_dir}/data/models"
-       $<TARGET_FILE_DIR:sl-bgblur-filter>/models
-)
-
-add_custom_command(TARGET sl-bgblur-filter POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-       "${_this_dir}/data/effects"
-       $<TARGET_FILE_DIR:sl-bgblur-filter>/effects
+       "${_this_dir}/bgblurdata"
+       $<TARGET_FILE_DIR:sl-bgblur-filter>/bgblurdata
 )
