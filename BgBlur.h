@@ -39,21 +39,21 @@ private:
 	~BgBlur();
 
 protected:
-	#define MODEL_SINET "models/SINet_Softmax_simple.onnx"
-	#define MODEL_MEDIAPIPE "models/mediapipe.onnx"
-	#define MODEL_SELFIE "models/selfie_segmentation.onnx"
-	#define MODEL_RVM "models/rvm_mobilenetv3_fp32.onnx"
-	#define MODEL_PPHUMANSEG "models/pphumanseg_fp32.onnx"
-	#define MODEL_DEPTH_TCMONODEPTH "models/tcmonodepth_tcsmallnet_192x320.onnx"
+	#define MODEL_SINET "bgblurdata/SINet_Softmax_simple.onnx"
+	#define MODEL_MEDIAPIPE "bgblurdata/mediapipe.onnx"
+	#define MODEL_SELFIE "bgblurdata/selfie_segmentation.onnx"
+	#define MODEL_RVM "bgblurdata/rvm_mobilenetv3_fp32.onnx"
+	#define MODEL_PPHUMANSEG "bgblurdata/pphumanseg_fp32.onnx"
+	#define MODEL_DEPTH_TCMONODEPTH "bgblurdata/tcmonodepth_tcsmallnet_192x320.onnx"
+	 
+	#define MASK_EFFECT_PATH "bgblurdata/mask_alpha_filter.effect"
+	#define KAWASE_BLUR_EFFECT_PATH "bgblurdata/kawase_blur.effect"
 	 
 	#define USEGPU_CPU "cpu"
 	#define USEGPU_DML "dml"
 	#define USEGPU_CUDA "cuda"
 	#define USEGPU_TENSORRT "tensorrt"
 	#define USEGPU_COREML "coreml"
-	 
-	#define MASK_EFFECT_PATH "effects/mask_alpha_filter.effect"
-	#define KAWASE_BLUR_EFFECT_PATH "effects/kawase_blur.effect"
 		
 	#define OBS_BGREMOVAL_ORT_SESSION_ERROR_FILE_NOT_FOUND 1
 	#define OBS_BGREMOVAL_ORT_SESSION_ERROR_INVALID_MODEL 2
