@@ -47,153 +47,6 @@ void BgBlur::obs_video_tick(void *data, float seconds)
 {
 	UNUSED_PARAMETER(seconds);
 	FilterData *filterD = (FilterData*)data;
-
-	if (filterD->isDisabled || !obs_source_enabled(filterD->source) || !filterD->model)
-		return;
-
-	cv::Mat imageBGRA;
-
-	{
-		std::unique_lock<std::mutex> lock(filterD->inputBGRALock);
-
-		// Nothing to process
-		if (filterD->inputBGRA.empty())
-			return;
-
-		imageBGRA = filterD->inputBGRA.clone();
-	}
-
-	if (filterD->enableImageSimilarity)
-	{
-		if (!filterD->lastImageBGRA.empty() && !imageBGRA.empty() && filterD->lastImageBGRA.size() == imageBGRA.size())
-		{
-			// If the image is almost the same as the previous one then skip processing.
-			if (cv::PSNR(filterD->lastImageBGRA, imageBGRA) > filterD->imageSimilarityThreshold)
-				return;
-		}
-
-		filterD->lastImageBGRA = imageBGRA.clone();
-	}
-
-	// First frame. Initialize the background mask.
-	if (filterD->backgroundMask.empty())
-		filterD->backgroundMask = cv::Mat(imageBGRA.size(), CV_8UC1, cv::Scalar(255));
-
-	filterD->maskEveryXFramesCount++;
-	filterD->maskEveryXFramesCount %= filterD->maskEveryXFrames;
-
-	try
-	{
-		if (filterD->maskEveryXFramesCount != 0 && !filterD->backgroundMask.empty())
-		{
-			// We are skipping processing of the mask for this frame.
-			// Get the background mask previously generated.
-		}
-		else
-		{
-			cv::Mat backgroundMask;
-
-			{
-				std::unique_lock<std::mutex> lock(filterD->modelMutex);								
-				cv::Mat outputImage;
-
-				if (BgBlurGraphics::runFilterModelInference(filterD, imageBGRA, outputImage))
-				{
-					if (filterD->enableThreshold)
-					{
-						// Assume outputImage is now a single channel, uint8 image with values between 0 and 255
-						// If we have a threshold, apply it. Otherwise, just use the output image as the mask
-						// We need to make filterD->threshold (float [0,1]) be in that range
-						const uint8_t threshold_value = (uint8_t)(filterD->threshold * 255.0f);
-						backgroundMask = outputImage < threshold_value;
-					}
-					else
-					{
-						backgroundMask = 255 - outputImage;
-					}
-				}
-			}
-
-			if (backgroundMask.empty())
-			{
-				blog(LOG_WARNING, "BgBlur::videoTick - Background mask is empty. This shouldn't happen. Using previous mask.");
-				return;
-			}
-
-			// Temporal smoothing
-			if (filterD->temporalSmoothFactor > 0.0 && filterD->temporalSmoothFactor < 1.0 && !filterD->lastBackgroundMask.empty() && filterD->lastBackgroundMask.size() == backgroundMask.size())
-			{
-
-				float temporalSmoothFactor = filterD->temporalSmoothFactor;
-
-				// The temporal smooth factor can't be smaller than the threshold
-				if (filterD->enableThreshold)
-					temporalSmoothFactor = std::max(temporalSmoothFactor, filterD->threshold);
-
-				cv::addWeighted(backgroundMask, temporalSmoothFactor, filterD->lastBackgroundMask, 1.0 - temporalSmoothFactor, 0.0, backgroundMask);
-			}
-
-			filterD->lastBackgroundMask = backgroundMask.clone();
-
-			// Contour processing
-			// Only applicable if we are thresholding (and get a binary image)
-			if (filterD->enableThreshold)
-			{
-				if (filterD->contourFilter > 0.0 && filterD->contourFilter < 1.0)
-				{
-					std::vector<std::vector<cv::Point>> contours;
-					findContours(backgroundMask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-
-					std::vector<std::vector<cv::Point>> filteredContours;
-					const double contourSizeThreshold = (double)(backgroundMask.total()) * filterD->contourFilter;
-
-					for (auto &contour : contours)
-					{
-						if (cv::contourArea(contour) > (double)contourSizeThreshold)
-							filteredContours.push_back(contour);
-					}
-
-					backgroundMask.setTo(0);
-					drawContours(backgroundMask, filteredContours, -1, cv::Scalar(255), -1);
-				}
-
-				if (filterD->smoothContour > 0.0)
-				{
-					int k_size = (int)(3 + 11 * filterD->smoothContour);
-					k_size += k_size % 2 == 0 ? 1 : 0;
-					cv::stackBlur(backgroundMask, backgroundMask, cv::Size(k_size, k_size));
-				}
-
-				// Resize the size of the mask back to the size of the original input.
-				cv::resize(backgroundMask, backgroundMask, imageBGRA.size());
-
-				// Additional contour processing at full resolution
-				// If the mask was smoothed, apply a threshold to get a binary mask
-				if (filterD->smoothContour > 0.0)
-					backgroundMask = backgroundMask > 128;
-
-				// Feather (blur) the mask
-				if (filterD->feather > 0.0)
-				{
-					int k_size = (int)(40 * filterD->feather);
-					k_size += k_size % 2 == 0 ? 1 : 0;
-					cv::dilate(backgroundMask, backgroundMask, cv::Mat(), cv::Point(-1, -1), k_size / 3);
-					cv::boxFilter(backgroundMask, backgroundMask, filterD->backgroundMask.depth(), cv::Size(k_size, k_size));
-				}
-			}
-
-			// Save the mask for the next frame
-			backgroundMask.copyTo(filterD->backgroundMask);
-		}
-	}
-	catch (const Ort::Exception &e)
-	{
-		blog(LOG_ERROR, "ONNXRuntime Exception: %s", e.what());
-	}
-	catch (const std::exception &e)
-	{
-		blog(LOG_ERROR, "%s", e.what());
-	}
 }
 
 /*static*/
@@ -218,6 +71,38 @@ void BgBlur::obs_video_render(void *data, gs_effect_t *_effect)
 			obs_source_skip_video_filter(filterD->source);
 
 		return;
+	}
+
+	{
+		cv::Mat frame;
+		{
+			std::lock_guard<std::mutex> lock(filterD->inputBGRALock);
+			frame = filterD->inputBGRA;
+		}
+
+		cv::Mat output8u;
+		{
+			std::unique_lock<std::mutex> lock(filterD->modelMutex);
+			cv::Mat outputFloat;
+			if (BgBlurGraphics::runFilterModelInference(filterD, frame, outputFloat))
+			{
+				if (filterD->enableThreshold)
+				{
+					const uint8_t t = (uint8_t)(filterD->threshold * 255.0f);
+					output8u = outputFloat < t;
+				}
+				else
+				{
+					output8u = 255 - outputFloat;
+				}
+			}
+		}
+
+		if (!output8u.empty())
+		{
+			std::lock_guard<std::mutex> lock(filterD->outputLock);
+			filterD->backgroundMask = output8u; // hand render the fresh mask
+		}
 	}
 
 	if (!filterD->maskEffect)
@@ -246,49 +131,64 @@ void BgBlur::obs_video_render(void *data, gs_effect_t *_effect)
 		}
 	}
 
-	// Output the masked image
-	gs_texture_t* blurredTexture = BgBlurGraphics::blurBackground(filterD, width, height, alphaTexture);
+	gs_texture_t *blurredTexture = nullptr;
 
-	if (!obs_source_process_filter_begin(filterD->source, GS_RGBA, OBS_ALLOW_DIRECT_RENDERING))
 	{
-		if (filterD->source)
-			obs_source_skip_video_filter(filterD->source);
+		if (filterD->blurBackground > 0)
+		{
+			const char *techName = filterD->enableFocalBlur ? "DrawWithFocalBlur" : "DrawWithBlur";
 
-		gs_texture_destroy(alphaTexture);
-		gs_texture_destroy(blurredTexture);
-		return;
+			blurredTexture = BgBlurGraphics::blurBackground(filterD, width, height, alphaTexture);
+
+			if (!obs_source_process_filter_begin(filterD->source, GS_RGBA, OBS_ALLOW_DIRECT_RENDERING))
+			{
+				if (filterD->source)
+					obs_source_skip_video_filter(filterD->source);
+
+				gs_texture_destroy(alphaTexture);
+				gs_texture_destroy(blurredTexture);
+				return;
+			}
+
+			gs_eparam_t *blurredBackground = gs_effect_get_param_by_name(filterD->maskEffect, "blurredBackground");
+			gs_effect_set_texture(blurredBackground, blurredTexture);
+
+			gs_blend_state_push();
+			gs_reset_blend_state();
+
+			obs_source_process_filter_tech_end(filterD->source, filterD->maskEffect, 0, 0, techName);
+
+			gs_blend_state_pop();
+		}
 	}
 
-	gs_eparam_t* alphamask = gs_effect_get_param_by_name(filterD->maskEffect, "alphamask");
-	gs_eparam_t* blurredBackground = gs_effect_get_param_by_name(filterD->maskEffect, "blurredBackground");
-
-	gs_effect_set_texture(alphamask, alphaTexture);
-
-	if (filterD->blurBackground > 0)
-		gs_effect_set_texture(blurredBackground, blurredTexture);
-
-	gs_blend_state_push();
-	gs_reset_blend_state();
-
-	const char *techName = "";
-
-	if (filterD->blurBackground > 0)
 	{
-		if (filterD->enableFocalBlur)
-			techName = "DrawWithFocalBlur";
-		else
-			techName = "DrawWithBlur";
-	}
-	else
-	{
-		techName = "DrawWithoutBlur";
+		if (!obs_source_process_filter_begin(filterD->source, GS_RGBA, OBS_ALLOW_DIRECT_RENDERING))
+		{
+			if (filterD->source)
+				obs_source_skip_video_filter(filterD->source);
+
+			gs_texture_destroy(alphaTexture);
+			if (blurredTexture)
+				gs_texture_destroy(blurredTexture);
+			return;
+		}
+
+		gs_eparam_t *alphamask = gs_effect_get_param_by_name(filterD->maskEffect, "alphamask");
+		gs_effect_set_texture(alphamask, alphaTexture);
+
+		gs_blend_state_push();
+		gs_reset_blend_state();
+
+		obs_source_process_filter_tech_end(filterD->source, filterD->maskEffect, 0, 0, "DrawWithoutBlur");
+
+		gs_blend_state_pop();
 	}
 
-	obs_source_process_filter_tech_end(filterD->source, filterD->maskEffect, 0, 0, techName);
-
-	gs_blend_state_pop();
 	gs_texture_destroy(alphaTexture);
-	gs_texture_destroy(blurredTexture);
+
+	if (blurredTexture)
+		gs_texture_destroy(blurredTexture);
 }
 
 /*static*/
