@@ -34,3 +34,9 @@ add_custom_command(TARGET sl-bgblur-filter POST_BUILD
         "${_this_dir}/bgblurdata/kawase_blur.effect"
         $<TARGET_FILE_DIR:sl-bgblur-filter>
 )
+
+if(COMMAND set_target_properties_obs)
+  set_target_properties_obs(sl-bgblur-filter PROPERTIES FOLDER plugins PREFIX "")
+else()
+  message(STATUS "set_target_properties_obs is not defined, skipping...")
+endif()
