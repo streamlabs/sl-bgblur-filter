@@ -1,5 +1,7 @@
 #pragma once
 
+#define NOMINMAX
+
 #include <obs.h>
 #include <obs-module.h>
 
@@ -39,15 +41,15 @@ private:
 	~BgBlur();
 
 protected:
-	#define MODEL_SINET "bgblurdata/SINet_Softmax_simple.onnx"
-	#define MODEL_MEDIAPIPE "bgblurdata/mediapipe.onnx"
-	#define MODEL_SELFIE "bgblurdata/selfie_segmentation.onnx"
-	#define MODEL_RVM "bgblurdata/rvm_mobilenetv3_fp32.onnx"
-	#define MODEL_PPHUMANSEG "bgblurdata/pphumanseg_fp32.onnx"
-	#define MODEL_DEPTH_TCMONODEPTH "bgblurdata/tcmonodepth_tcsmallnet_192x320.onnx"
+	#define MODEL_SINET "SINet_Softmax_simple.onnx"
+	#define MODEL_MEDIAPIPE "mediapipe.onnx"
+	#define MODEL_SELFIE "selfie_segmentation.onnx"
+	#define MODEL_RVM "rvm_mobilenetv3_fp32.onnx"
+	#define MODEL_PPHUMANSEG "pphumanseg_fp32.onnx"
+	#define MODEL_DEPTH_TCMONODEPTH "tcmonodepth_tcsmallnet_192x320.onnx"
 	 
-	#define MASK_EFFECT_PATH "bgblurdata/mask_alpha_filter.effect"
-	#define KAWASE_BLUR_EFFECT_PATH "bgblurdata/kawase_blur.effect"
+	#define MASK_EFFECT_PATH "mask_alpha_filter.effect"
+	#define KAWASE_BLUR_EFFECT_PATH "kawase_blur.effect"
 	 
 	#define USEGPU_CPU "cpu"
 	#define USEGPU_DML "dml"

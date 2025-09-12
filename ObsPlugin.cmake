@@ -17,6 +17,8 @@ target_link_options(sl-bgblur-filter PRIVATE
   "/IGNORE:4099" # Ignore PDB warnings
 )
 
+target_compile_options(sl-bgblur-filter PRIVATE /O1 /Os /GL)
+
 target_sources(sl-bgblur-filter PRIVATE
 	"${_this_dir}/sl-bgblur-filter.cpp"
 	"${_this_dir}/BgBlur.cpp"
@@ -27,11 +29,8 @@ target_sources(sl-bgblur-filter PRIVATE
 add_custom_command(TARGET sl-bgblur-filter POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "$<TARGET_FILE:Ort::DirectML>"
+        "${_this_dir}/bgblurdata/mediapipe.onnx"
+        "${_this_dir}/bgblurdata/mask_alpha_filter.effect"
+        "${_this_dir}/bgblurdata/kawase_blur.effect"
         $<TARGET_FILE_DIR:sl-bgblur-filter>
-)
-
-add_custom_command(TARGET sl-bgblur-filter POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-       "${_this_dir}/bgblurdata"
-       $<TARGET_FILE_DIR:sl-bgblur-filter>/bgblurdata
 )
