@@ -1,6 +1,9 @@
 #pragma once
 
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
+
 
 #include <obs.h>
 #include <obs-module.h>
