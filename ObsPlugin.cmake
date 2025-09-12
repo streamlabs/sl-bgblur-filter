@@ -40,3 +40,17 @@ if(COMMAND set_target_properties_obs)
 else()
   message(STATUS "set_target_properties_obs is not defined, skipping...")
 endif()
+
+# Install the ONNX model and effect shaders
+install(FILES
+    "${_this_dir}/bgblurdata/mediapipe.onnx"
+    "${_this_dir}/bgblurdata/mask_alpha_filter.effect"
+    "${_this_dir}/bgblurdata/kawase_blur.effect"
+    DESTINATION "${OBS_PLUGIN_DESTINATION}"
+)
+
+# Install the DirectML runtime dependency if required
+install(FILES
+    "$<TARGET_FILE:Ort::DirectML>"
+    DESTINATION "${OBS_PLUGIN_DESTINATION}"
+)
