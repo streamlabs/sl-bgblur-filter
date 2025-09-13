@@ -29,7 +29,7 @@ target_sources(sl-bgblur-filter PRIVATE
 add_custom_command(TARGET sl-bgblur-filter POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "$<TARGET_FILE:Ort::DirectML>"
-        "${_this_dir}/bgblurdata/rvm_mobilenetv3_fp32.onnx"
+        "${_this_dir}/bgblurdata/mediapipe.onnx"	
         "${_this_dir}/bgblurdata/mask_alpha_filter.effect"
         "${_this_dir}/bgblurdata/kawase_blur.effect"
         $<TARGET_FILE_DIR:sl-bgblur-filter>

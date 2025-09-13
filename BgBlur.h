@@ -44,23 +44,6 @@ private:
 	~BgBlur();
 
 protected:
-	#define MODEL_SINET "SINet_Softmax_simple.onnx"
-	#define MODEL_MEDIAPIPE "mediapipe.onnx"
-	#define MODEL_SELFIE "selfie_segmentation.onnx"
-	#define MODEL_RVM "rvm_mobilenetv3_fp32.onnx"
-	#define MODEL_PPHUMANSEG "pphumanseg_fp32.onnx"
-	#define MODEL_DEPTH_TCMONODEPTH "tcmonodepth_tcsmallnet_192x320.onnx"
-	#define MODEL_RMBG "bria_rmbg_1_4_qint8.onnx"
-
-	#define MASK_EFFECT_PATH "mask_alpha_filter.effect"
-	#define KAWASE_BLUR_EFFECT_PATH "kawase_blur.effect"
-	 
-	#define USEGPU_CPU "cpu"
-	#define USEGPU_DML "dml"
-	#define USEGPU_CUDA "cuda"
-	#define USEGPU_TENSORRT "tensorrt"
-	#define USEGPU_COREML "coreml"
-		
 	#define OBS_BGREMOVAL_ORT_SESSION_ERROR_FILE_NOT_FOUND 1
 	#define OBS_BGREMOVAL_ORT_SESSION_ERROR_INVALID_MODEL 2
 	#define OBS_BGREMOVAL_ORT_SESSION_ERROR_INVALID_INPUT_OUTPUT 3

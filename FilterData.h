@@ -5,54 +5,72 @@
 
 #include "Models.h"
 
+#define MODEL_SINET "SINet_Softmax_simple.onnx"
+#define MODEL_MEDIAPIPE "mediapipe.onnx"
+#define MODEL_SELFIE "selfie_segmentation.onnx"
+#define MODEL_RVM "rvm_mobilenetv3_fp32.onnx"
+#define MODEL_PPHUMANSEG "pphumanseg_fp32.onnx"
+#define MODEL_DEPTH_TCMONODEPTH "tcmonodepth_tcsmallnet_192x320.onnx"
+#define MODEL_RMBG "bria_rmbg_1_4_qint8.onnx"
+
+#define MASK_EFFECT_PATH "mask_alpha_filter.effect"
+#define KAWASE_BLUR_EFFECT_PATH "kawase_blur.effect"
+
+#define USEGPU_CPU "cpu"
+#define USEGPU_DML "dml"
+#define USEGPU_CUDA "cuda"
+#define USEGPU_TENSORRT "tensorrt"
+#define USEGPU_COREML "coreml"
+
 struct FilterData : public ORTModelData
 {
 public:
-	// --- Inference / Model configuration ---
-	std::string useGPU;
-	uint32_t numThreads = 0;
+	// Inference / Model configuration 
+	std::string useGPU = USEGPU_DML;
+	uint32_t numThreads = 1;
 	std::string modelSelection;
 	std::unique_ptr<Model> model;
 	std::wstring modelFilepath;
 	std::mutex modelMutex;
 
-	// --- OBS / Graphics handles ---
-	obs_source_t* source = nullptr;
-	gs_texrender_t* texrender = nullptr;
-	gs_stagesurf_t* stagesurface = nullptr;
-	gs_effect_t* maskEffect = nullptr;
-	gs_effect_t* kawaseBlurEffect = nullptr;
+	// OBS / Graphics handles
+	obs_source_t *source = nullptr;
+	gs_texrender_t *texrender = nullptr;
+	gs_stagesurf_t *stagesurface = nullptr;
+	gs_effect_t *maskEffect = nullptr;
+	gs_effect_t *kawaseBlurEffect = nullptr;
 
-	// --- Frame data ---
+	// Frame data
 	cv::Mat inputBGRA;
 	cv::Mat backgroundMask;
 	cv::Mat lastBackgroundMask;
 	cv::Mat lastImageBGRA;
 
-	// --- Concurrency ---
+	// Concurrency
 	std::mutex inputBGRALock;
 	std::mutex outputLock;
 
-	// --- State flags ---
+	// State flags
 	bool isDisabled = false;
 
-	// --- Threshold / Masking controls ---
-	bool enableThreshold = true;
-	float threshold = 0.5f;
+	// Threshold / Masking controls
+	bool enableThreshold = true; 
+	float threshold = 0.5f;      
 	cv::Scalar backgroundColor{0, 0, 0, 0};
-	float contourFilter = 0.05f;
-	float smoothContour = 0.5f;
-	float feather = 0.0f;
-	int maskEveryXFrames = 1;
+	float contourFilter = 0.05f; 
+	float smoothContour = 1.0f;  
+	float feather = 0.0f;        
+	int maskEveryXFrames = 1;    
 	int maskEveryXFramesCount = 0;
 
-	// --- Similarity & temporal smoothing ---
-	float temporalSmoothFactor = 0.0f;
+	// Similarity & temporal smoothing
+	float temporalSmoothFactor = 0.0f;     
 	float imageSimilarityThreshold = 35.0f;
-	bool enableImageSimilarity = true;
+	bool enableImageSimilarity = true;     
 
-	// --- Blur / Depth settings ---
-	int64_t blurBackground = 0;
-	float blurFocusPoint = 0.1f;
-	float blurFocusDepth = 0.1f;
+	// Blur / Depth settings
+	int64_t blurBackground = 10; 
+	float blurFocusPoint = 0.1f; 
+	float blurFocusDepth = 0.0f; 
+	bool enableFocalBlur = false;
 };

@@ -6,7 +6,6 @@
 #include <memory>
 #include <vector>
 
-// ---------- Small helpers ----------
 template<typename T> static inline T vectorProduct(const std::vector<T> &v)
 {
 	T product = 1;
@@ -47,7 +46,6 @@ static inline void chw_to_hwc_32f(cv::InputArray src, cv::OutputArray dst)
 	cv::merge(chs, dst);
 }
 
-// ---------- Base model interface ----------
 class Model
 {
 public:
@@ -159,7 +157,6 @@ public:
 	}
 };
 
-// ---------- BCHW specialization ----------
 class ModelBCHW : public Model
 {
 public:
@@ -361,7 +358,6 @@ public:
 	void postprocessOutput(cv::Mat &outputImage) override { cv::normalize(outputImage, outputImage, 1.0, 0.0, cv::NORM_MINMAX); }
 };
 
-// ---------- ORT model data bundle used by FilterData ----------
 struct ORTModelData
 {
 	std::unique_ptr<Ort::Session> session;
