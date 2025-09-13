@@ -36,29 +36,15 @@ void *BgBlur::obs_create(obs_data_t *settings, obs_source_t *source)
 	filterD->source = source;
 	filterD->texrender = gs_texrender_create(GS_BGRA, GS_ZS_NONE);
 	filterD->env = std::make_unique<Ort::Env>(OrtLoggingLevel::ORT_LOGGING_LEVEL_ERROR, "bgremove-ort");
-
-	// Default to just one for now, no selection option
-	filterD->modelSelection = MODEL_MEDIAPIPE;
-	
-	if (filterD->modelSelection == MODEL_SINET)
-		filterD->model = std::make_unique<ModelSINET>();
-	else if (filterD->modelSelection == MODEL_SELFIE)
-		filterD->model = std::make_unique<ModelSelfie>();
-	else if (filterD->modelSelection == MODEL_MEDIAPIPE)
-		filterD->model = std::make_unique<ModelMediaPipe>();
-	else if (filterD->modelSelection == MODEL_RVM)
-		filterD->model = std::make_unique<ModelRVM>();
-	else if (filterD->modelSelection == MODEL_PPHUMANSEG)
-		filterD->model = std::make_unique<ModelPPHumanSeg>();
-	else if (filterD->modelSelection == MODEL_DEPTH_TCMONODEPTH)
-		filterD->model = std::make_unique<ModelTCMonoDepth>();
-	else if(filterD->modelSelection == MODEL_RMBG)
-		filterD->model = std::make_unique<ModelRMBG>();
+	filterD->model = std::make_unique<ModelMediaPipe>();
+	filterD->modelSelection = "mediapipe.onnx";
 
 	int ortSessionResult = BgBlurGraphics::createOrtSession(filterD);
+
 	if (ortSessionResult != OBS_BGREMOVAL_ORT_SESSION_SUCCESS)
 	{
-		blog(LOG_ERROR, "Failed to create ONNXRuntime session. Error code: %d", ortSessionResult);
+		MessageBoxA(0, "Failed to create ONNXRuntime session with any model", "Failed to create ONNXRuntime session with any model", 0);
+		blog(LOG_ERROR, "Failed to create ONNXRuntime session with any model. Last error code: %d", ortSessionResult);
 		delete filterD;
 		return nullptr;
 	}
@@ -166,77 +152,34 @@ void BgBlur::obs_video_render(void *data, gs_effect_t *_effect)
 
 				if (!backgroundMask.empty())
 				{
-					// Temporal smoothing (optionally clamped by threshold)
-					if (filterD->temporalSmoothFactor > 0.0 && filterD->temporalSmoothFactor < 1.0 && !filterD->lastBackgroundMask.empty() && filterD->lastBackgroundMask.size() == backgroundMask.size())
-					{
-						float t = filterD->temporalSmoothFactor;
-						if (filterD->enableThreshold)
-							t = std::max(t, filterD->threshold);
-
-						// If the current mask differs a lot from the previous, don’t smooth this frame.
-						// Use a depth-aware epsilon so this works for 8-bit and float masks.
-						double eps;
-						switch (backgroundMask.depth())
-						{
-						case CV_8U:
-						case CV_8S:
-						case CV_16U:
-						case CV_16S:
-							eps = 5.0;
-							break; // pixel levels for integer masks
-						case CV_32F:
-						case CV_64F:
-						default:
-							eps = 0.02;
-							break; // normalized float masks
-						}
-
-						const double maxDiff = cv::norm(backgroundMask, filterD->lastBackgroundMask, cv::NORM_INF);
-						if (maxDiff <= eps)
-						{
-							cv::addWeighted(backgroundMask, t, filterD->lastBackgroundMask, 1.0f - t, 0.0, backgroundMask);
-						}
-					}
-
 					filterD->lastBackgroundMask = backgroundMask.clone();
 
-					// Contour processing (only when thresholding → binary)
-					if (filterD->enableThreshold)
+					if (filterD->contourFilter > 0.0 && filterD->contourFilter < 1.0)
 					{
-						if (filterD->contourFilter > 0.0 && filterD->contourFilter < 1.0)
-						{
-							std::vector<std::vector<cv::Point>> contours, filtered;
-							findContours(backgroundMask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-							const double contourSizeThreshold = (double)backgroundMask.total() * filterD->contourFilter;
-							for (auto &c : contours)
-								if (cv::contourArea(c) > contourSizeThreshold)
-									filtered.push_back(c);
-							backgroundMask.setTo(0);
-							drawContours(backgroundMask, filtered, -1, cv::Scalar(255), -1);
-						}
-
-						if (filterD->smoothContour > 0.0)
-						{
-							int k = (int)(3 + 11 * filterD->smoothContour);
-							if ((k & 1) == 0)
-								++k;
-							cv::stackBlur(backgroundMask, backgroundMask, cv::Size(k, k));
-						}
-
-						// Resize mask back to input image size
-						cv::resize(backgroundMask, backgroundMask, imageBGRA.size());
-
-						// If we smoothed, re-binarize
-						if (filterD->smoothContour > 0.0)
-							backgroundMask = backgroundMask > 128;
-
-						if (filterD->feather > 0.0f)
-						{
-							int k = std::max(3, 2 * (int)std::round(filterD->feather) + 1);
-							const int dilateIters = std::max(1, k / 3);
-							cv::dilate(backgroundMask, backgroundMask, cv::Mat(), cv::Point(-1, -1), dilateIters);
-						}
+						std::vector<std::vector<cv::Point>> contours, filtered;
+						findContours(backgroundMask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+						const double contourSizeThreshold = (double)backgroundMask.total() * filterD->contourFilter;
+						for (auto &c : contours)
+							if (cv::contourArea(c) > contourSizeThreshold)
+								filtered.push_back(c);
+						backgroundMask.setTo(0);
+						drawContours(backgroundMask, filtered, -1, cv::Scalar(255), -1);
 					}
+
+					if (filterD->smoothContour > 0.0)
+					{
+						int k = (int)(3 + 11 * filterD->smoothContour);
+						if ((k & 1) == 0)
+							++k;
+						cv::stackBlur(backgroundMask, backgroundMask, cv::Size(k, k));
+					}
+
+					// Resize mask back to input image size
+					cv::resize(backgroundMask, backgroundMask, imageBGRA.size());
+
+					// If we smoothed, re-binarize
+					if (filterD->smoothContour > 0.0)
+						backgroundMask = backgroundMask > 128;
 
 					// Commit the new mask
 					backgroundMask.copyTo(filterD->backgroundMask);
@@ -345,7 +288,7 @@ obs_properties_t *BgBlur::obs_properties(void *data)
 
 	obs_properties_add_int_slider(props, "blur_background", "Blur Amount", 0, 20, 1);
 	obs_properties_add_float_slider(props, "smooth_contour", "Smooth", 0.0, 1.0, 0.01);
-	obs_properties_add_float_slider(props, "temporal_smooth_factor", "Motion Smoothing", 0.0, 0.99, 0.01);
+	//obs_properties_add_float_slider(props, "temporal_smooth_factor", "Motion Smoothing", 0.0, 0.99, 0.01);
 	return props;
 }
 
@@ -358,7 +301,7 @@ void BgBlur::obs_update_settings(void *data, obs_data_t *settings)
 
 	filterD->blurBackground = obs_data_get_int(settings, "blur_background");
 	filterD->smoothContour = (float)obs_data_get_double(settings, "smooth_contour");
-	filterD->temporalSmoothFactor = (float)obs_data_get_double(settings, "temporal_smooth_factor");
+	//filterD->temporalSmoothFactor = (float)obs_data_get_double(settings, "temporal_smooth_factor");
 
 	obs_enter_graphics();
 

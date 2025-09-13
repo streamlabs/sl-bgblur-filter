@@ -5,14 +5,6 @@
 
 #include "Models.h"
 
-#define MODEL_SINET "SINet_Softmax_simple.onnx"
-#define MODEL_MEDIAPIPE "mediapipe.onnx"
-#define MODEL_SELFIE "selfie_segmentation.onnx"
-#define MODEL_RVM "rvm_mobilenetv3_fp32.onnx"
-#define MODEL_PPHUMANSEG "pphumanseg_fp32.onnx"
-#define MODEL_DEPTH_TCMONODEPTH "tcmonodepth_tcsmallnet_192x320.onnx"
-#define MODEL_RMBG "bria_rmbg_1_4_qint8.onnx"
-
 #define MASK_EFFECT_PATH "mask_alpha_filter.effect"
 #define KAWASE_BLUR_EFFECT_PATH "kawase_blur.effect"
 
@@ -26,7 +18,7 @@ struct FilterData : public ORTModelData
 {
 public:
 	// Inference / Model configuration 
-	std::string useGPU = USEGPU_DML;
+	std::string useGPU = USEGPU_CPU;
 	uint32_t numThreads = 1;
 	std::string modelSelection;
 	std::unique_ptr<Model> model;
@@ -64,7 +56,7 @@ public:
 	int maskEveryXFramesCount = 0;
 
 	// Similarity & temporal smoothing
-	float temporalSmoothFactor = 0.0f;     
+	float temporalSmoothFactor = 0.1f;     
 	float imageSimilarityThreshold = 35.0f;
 	bool enableImageSimilarity = true;     
 

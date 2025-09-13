@@ -11,7 +11,6 @@
 #include <opencv2/core/types.hpp>
 #include <onnxruntime_cxx_api.h>
 #include <cpu_provider_factory.h>
-#include <dml_provider_factory.h>
 
 struct FilterData;
 

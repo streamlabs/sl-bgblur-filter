@@ -201,14 +201,6 @@ int BgBlurGraphics::createOrtSession(FilterData *tf)
 
 	try
 	{
-		if (tf->useGPU == USEGPU_DML)
-		{
-			auto &api = Ort::GetApi();
-			OrtDmlApi *dmlApi = nullptr;
-			Ort::ThrowOnError(api.GetExecutionProviderApi("DML", ORT_API_VERSION, (const void **)&dmlApi));
-			Ort::ThrowOnError(dmlApi->SessionOptionsAppendExecutionProvider_DML(sessionOptions, 0));
-		}
-
 		tf->session = std::make_unique<Ort::Session>(*tf->env, tf->modelFilepath.c_str(), sessionOptions);
 	}
 	catch (const std::exception &e)

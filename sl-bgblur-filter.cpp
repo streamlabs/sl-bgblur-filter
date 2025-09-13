@@ -14,11 +14,6 @@ MODULE_EXPORT const char *obs_module_description(void)
 
 bool obs_module_load(void)
 {
-	//AllocConsole();
-	//freopen("conin$", "r", stdin);
-	//freopen("conout$", "w", stdout);
-	//freopen("conout$", "w", stderr);
-
 	//::MessageBoxA(0, "", "", 0);
 
 	struct obs_source_info sinfo = {};
