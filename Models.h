@@ -196,6 +196,77 @@ public:
 	}
 };
 
+class ModelBCHW : public Model
+{
+public:
+	ModelBCHW(/* args */) {}
+	~ModelBCHW() {}
+
+	virtual void prepareInputToNetwork(cv::Mat &resizedImage, cv::Mat &preprocessedImage)
+	{
+		resizedImage = resizedImage / 255.0;
+		hwc_to_chw(resizedImage, preprocessedImage);
+	}
+
+	virtual void postprocessOutput(cv::Mat &output)
+	{
+		cv::Mat outputTransposed;
+		chw_to_hwc_32f(output, outputTransposed);
+		outputTransposed.copyTo(output);
+	}
+
+	virtual void getNetworkInputSize(const std::vector<std::vector<int64_t>> &inputDims, uint32_t &inputWidth, uint32_t &inputHeight)
+	{
+		// BCHW
+		inputWidth = (int)inputDims[0][3];
+		inputHeight = (int)inputDims[0][2];
+	}
+
+	virtual cv::Mat getNetworkOutput(const std::vector<std::vector<int64_t>> &outputDims, std::vector<std::vector<float>> &outputTensorValues)
+	{
+		// BCHW
+		uint32_t outputWidth = (int)outputDims[0].at(3);
+		uint32_t outputHeight = (int)outputDims[0].at(2);
+		int32_t outputChannels = CV_MAKE_TYPE(CV_32F, (int)outputDims[0].at(1));
+
+		return cv::Mat(outputHeight, outputWidth, outputChannels, outputTensorValues[0].data());
+	}
+
+	virtual void loadInputToTensor(const cv::Mat &preprocessedImage, uint32_t, uint32_t, std::vector<std::vector<float>> &inputTensorValues) { inputTensorValues[0].assign(preprocessedImage.begin<float>(), preprocessedImage.end<float>()); }
+};
+
+class ModelPPHumanSeg : public ModelBCHW
+{
+public:
+	ModelPPHumanSeg(/* args */) {}
+	~ModelPPHumanSeg() {}
+
+	virtual void prepareInputToNetwork(cv::Mat &resizedImage, cv::Mat &preprocessedImage)
+	{
+		resizedImage = (resizedImage / 256.0 - cv::Scalar(0.5, 0.5, 0.5)) / cv::Scalar(0.5, 0.5, 0.5);
+
+		hwc_to_chw(resizedImage, preprocessedImage);
+	}
+
+	virtual cv::Mat getNetworkOutput(const std::vector<std::vector<int64_t>> &outputDims, std::vector<std::vector<float>> &outputTensorValues)
+	{
+		uint32_t outputWidth = (int)outputDims[0].at(2);
+		uint32_t outputHeight = (int)outputDims[0].at(1);
+		int32_t outputChannels = CV_32FC2;
+
+		return cv::Mat(outputHeight, outputWidth, outputChannels, outputTensorValues[0].data());
+	}
+
+	virtual void postprocessOutput(cv::Mat &outputImage)
+	{
+		// take 1st channel
+		std::vector<cv::Mat> outputImageSplit;
+		cv::split(outputImage, outputImageSplit);
+
+		cv::normalize(outputImageSplit[1], outputImage, 1.0, 0.0, cv::NORM_MINMAX);
+	}
+};
+
 struct ORTModelData
 {
 	std::unique_ptr<Ort::Session> session;

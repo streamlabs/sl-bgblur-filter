@@ -171,6 +171,7 @@ int BgBlurGraphics::createOrtSession(FilterData *tf)
 {
 	if (tf->model.get() == nullptr)
 	{
+		printf("BgBlur::createOrtSession null model\n");
 		blog(LOG_ERROR, "BgBlur::createOrtSession null model");
 		return OBS_BGREMOVAL_ORT_SESSION_ERROR_INVALID_MODEL;
 	}
@@ -193,6 +194,7 @@ int BgBlurGraphics::createOrtSession(FilterData *tf)
 
 	if (!std::filesystem::exists(modelFilepath))
 	{
+		printf("tf->modelSelection not found at\n");
 		blog(LOG_ERROR, "tf->modelSelection not found at %s", modelFilepath.string().c_str());
 		return OBS_BGREMOVAL_ORT_SESSION_ERROR_FILE_NOT_FOUND;
 	}
@@ -205,6 +207,7 @@ int BgBlurGraphics::createOrtSession(FilterData *tf)
 	}
 	catch (const std::exception &e)
 	{
+		printf("%s\n", e.what());
 		blog(LOG_ERROR, "%s", e.what());
 		return OBS_BGREMOVAL_ORT_SESSION_ERROR_STARTUP;
 	}
@@ -215,6 +218,7 @@ int BgBlurGraphics::createOrtSession(FilterData *tf)
 
 	if (!tf->model->populateInputOutputShapes(tf->session, tf->inputDims, tf->outputDims))
 	{
+		printf("Unable to get model input and output shapes\n");
 		blog(LOG_ERROR, "Unable to get model input and output shapes");
 		return OBS_BGREMOVAL_ORT_SESSION_ERROR_INVALID_INPUT_OUTPUT;
 	}

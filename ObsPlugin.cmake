@@ -28,7 +28,7 @@ target_sources(sl-bgblur-filter PRIVATE
 add_custom_command(TARGET sl-bgblur-filter POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${_this_dir}/onnx/onnxruntime.dll"
-        "${_this_dir}/bgblurdata/mediapipe.onnx"
+        "${_this_dir}/bgblurdata/pphumanseg_fp32.onnx"
         "${_this_dir}/bgblurdata/mask_alpha_filter.effect"
         "${_this_dir}/bgblurdata/kawase_blur.effect"
         $<TARGET_FILE_DIR:sl-bgblur-filter>
@@ -41,7 +41,7 @@ else()
 endif()
 
 install(FILES
-    "${_this_dir}/bgblurdata/mediapipe.onnx"
+    "${_this_dir}/bgblurdata/pphumanseg_fp32.onnx"
     "${_this_dir}/bgblurdata/mask_alpha_filter.effect"
     "${_this_dir}/bgblurdata/kawase_blur.effect"
     DESTINATION "${OBS_PLUGIN_DESTINATION}"

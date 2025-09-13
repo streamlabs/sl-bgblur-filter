@@ -36,14 +36,13 @@ void *BgBlur::obs_create(obs_data_t *settings, obs_source_t *source)
 	filterD->source = source;
 	filterD->texrender = gs_texrender_create(GS_BGRA, GS_ZS_NONE);
 	filterD->env = std::make_unique<Ort::Env>(OrtLoggingLevel::ORT_LOGGING_LEVEL_ERROR, "bgremove-ort");
-	filterD->model = std::make_unique<ModelMediaPipe>();
-	filterD->modelSelection = "mediapipe.onnx";
+	filterD->model = std::make_unique<ModelPPHumanSeg>();
+	filterD->modelSelection = "pphumanseg_fp32.onnx";
 
 	int ortSessionResult = BgBlurGraphics::createOrtSession(filterD);
 
 	if (ortSessionResult != OBS_BGREMOVAL_ORT_SESSION_SUCCESS)
 	{
-		MessageBoxA(0, "Failed to create ONNXRuntime session with any model", "Failed to create ONNXRuntime session with any model", 0);
 		blog(LOG_ERROR, "Failed to create ONNXRuntime session with any model. Last error code: %d", ortSessionResult);
 		delete filterD;
 		return nullptr;
