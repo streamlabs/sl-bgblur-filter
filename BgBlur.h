@@ -50,7 +50,8 @@ protected:
 	#define MODEL_RVM "rvm_mobilenetv3_fp32.onnx"
 	#define MODEL_PPHUMANSEG "pphumanseg_fp32.onnx"
 	#define MODEL_DEPTH_TCMONODEPTH "tcmonodepth_tcsmallnet_192x320.onnx"
-	 
+	#define MODEL_RMBG "bria_rmbg_1_4_qint8.onnx"
+
 	#define MASK_EFFECT_PATH "mask_alpha_filter.effect"
 	#define KAWASE_BLUR_EFFECT_PATH "kawase_blur.effect"
 	 

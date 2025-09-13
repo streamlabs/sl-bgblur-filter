@@ -153,7 +153,7 @@ gs_texture_t* BgBlurGraphics::blurBackground(FilterData *tf, uint32_t width, uin
 		gs_blend_state_push();
 		gs_blend_function(GS_BLEND_ONE, GS_BLEND_ZERO);
 
-		const char *blur_type = (tf->enableFocalBlur) ? "DrawFocalBlur" : "Draw";
+		const char *blur_type = "Draw";
 
 		while (gs_effect_loop(tf->kawaseBlurEffect, blur_type))
 			gs_draw_sprite(blurredTexture, 0, width, height);
@@ -225,18 +225,6 @@ int BgBlurGraphics::createOrtSession(FilterData *tf)
 	{
 		blog(LOG_ERROR, "Unable to get model input and output shapes");
 		return OBS_BGREMOVAL_ORT_SESSION_ERROR_INVALID_INPUT_OUTPUT;
-	}
-
-	for (size_t i = 0; i < tf->inputNames.size(); i++)
-	{
-		blog(LOG_INFO, "Model %s input %d: name %s shape (%d dim) %d x %d x %d x %d", tf->modelSelection.c_str(), (int)i, tf->inputNames[i].get(), (int)tf->inputDims[i].size(), (int)tf->inputDims[i][0], ((int)tf->inputDims[i].size() > 1) ? (int)tf->inputDims[i][1] : 0,
-		     ((int)tf->inputDims[i].size() > 2) ? (int)tf->inputDims[i][2] : 0, ((int)tf->inputDims[i].size() > 3) ? (int)tf->inputDims[i][3] : 0);
-	}
-
-	for (size_t i = 0; i < tf->outputNames.size(); i++)
-	{
-		blog(LOG_INFO, "Model %s output %d: name %s shape (%d dim) %d x %d x %d x %d", tf->modelSelection.c_str(), (int)i, tf->outputNames[i].get(), (int)tf->outputDims[i].size(), (int)tf->outputDims[i][0], ((int)tf->outputDims[i].size() > 1) ? (int)tf->outputDims[i][1] : 0,
-		     ((int)tf->outputDims[i].size() > 2) ? (int)tf->outputDims[i][2] : 0, ((int)tf->outputDims[i].size() > 3) ? (int)tf->outputDims[i][3] : 0);
 	}
 
 	// Allocate buffers

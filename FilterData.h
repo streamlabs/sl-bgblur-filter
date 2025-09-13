@@ -53,7 +53,6 @@ public:
 
 	// --- Blur / Depth settings ---
 	int64_t blurBackground = 0;
-	bool enableFocalBlur = false;
 	float blurFocusPoint = 0.1f;
 	float blurFocusDepth = 0.1f;
 };
