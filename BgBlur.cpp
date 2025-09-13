@@ -151,19 +151,10 @@ void BgBlur::obs_video_render(void *data, gs_effect_t *_effect)
 
 				if (!backgroundMask.empty())
 				{
-					filterD->lastBackgroundMask = backgroundMask.clone();
+					if (filterD->temporalSmoothFactor > 0 && !filterD->lastBackgroundMask.empty() && filterD->lastBackgroundMask.size() == backgroundMask.size())
+						cv::addWeighted(backgroundMask, 1.0 - filterD->temporalSmoothFactor, filterD->lastBackgroundMask, filterD->temporalSmoothFactor, 0.0, backgroundMask);
 
-					if (filterD->contourFilter > 0.0 && filterD->contourFilter < 1.0)
-					{
-						std::vector<std::vector<cv::Point>> contours, filtered;
-						findContours(backgroundMask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-						const double contourSizeThreshold = (double)backgroundMask.total() * filterD->contourFilter;
-						for (auto &c : contours)
-							if (cv::contourArea(c) > contourSizeThreshold)
-								filtered.push_back(c);
-						backgroundMask.setTo(0);
-						drawContours(backgroundMask, filtered, -1, cv::Scalar(255), -1);
-					}
+					filterD->lastBackgroundMask = backgroundMask.clone();
 
 					if (filterD->smoothContour > 0.0)
 					{
@@ -261,22 +252,9 @@ void BgBlur::obs_video_render(void *data, gs_effect_t *_effect)
 /*static*/
 void BgBlur::obs_defaults(obs_data_t *settings)
 {
-	obs_data_set_default_bool(settings, "enable_threshold", true);
-	obs_data_set_default_double(settings, "threshold", 0.5);
-	obs_data_set_default_double(settings, "contour_filter", 0.05);
-	obs_data_set_default_double(settings, "smooth_contour", 1.0);
-	obs_data_set_default_double(settings, "feather", 0.0);
-	obs_data_set_default_string(settings, "useGPU", USEGPU_DML);
-	obs_data_set_default_string(settings, "model_select", MODEL_MEDIAPIPE);
-	obs_data_set_default_int(settings, "mask_every_x_frames", 1);
 	obs_data_set_default_int(settings, "blur_background", 10);
-	obs_data_set_default_int(settings, "numThreads", 1);
-	obs_data_set_default_bool(settings, "enable_focal_blur", false);
-	obs_data_set_default_double(settings, "temporal_smooth_factor", 0);
-	obs_data_set_default_double(settings, "image_similarity_threshold", 35.0);
-	obs_data_set_default_bool(settings, "enable_image_similarity", true);
-	obs_data_set_default_double(settings, "blur_focus_point", 0.1);
-	obs_data_set_default_double(settings, "blur_focus_depth", 0.0);
+	obs_data_set_default_double(settings, "smooth_contour", 1.0);
+	obs_data_set_default_double(settings, "temporal_smooth_factor", 0.35);
 }
 
 /*static*/
@@ -287,7 +265,8 @@ obs_properties_t *BgBlur::obs_properties(void *data)
 
 	obs_properties_add_int_slider(props, "blur_background", "Blur Amount", 0, 20, 1);
 	obs_properties_add_float_slider(props, "smooth_contour", "Smooth", 0.0, 1.0, 0.01);
-	//obs_properties_add_float_slider(props, "temporal_smooth_factor", "Motion Smoothing", 0.0, 0.99, 0.01);
+	obs_properties_add_float_slider(props, "temporal_smooth_factor", "Removal Smoothing", 0.0, 0.90, 0.01);
+
 	return props;
 }
 
@@ -300,7 +279,7 @@ void BgBlur::obs_update_settings(void *data, obs_data_t *settings)
 
 	filterD->blurBackground = obs_data_get_int(settings, "blur_background");
 	filterD->smoothContour = (float)obs_data_get_double(settings, "smooth_contour");
-	//filterD->temporalSmoothFactor = (float)obs_data_get_double(settings, "temporal_smooth_factor");
+	filterD->temporalSmoothFactor = (float)obs_data_get_double(settings, "temporal_smooth_factor");
 
 	obs_enter_graphics();
 

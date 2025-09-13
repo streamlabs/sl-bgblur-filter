@@ -56,7 +56,7 @@ public:
 	int maskEveryXFramesCount = 0;
 
 	// Similarity & temporal smoothing
-	float temporalSmoothFactor = 0.1f;     
+	float temporalSmoothFactor = 0.5f;     
 	float imageSimilarityThreshold = 35.0f;
 	bool enableImageSimilarity = true;     
 
