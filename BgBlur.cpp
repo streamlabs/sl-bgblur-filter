@@ -66,18 +66,12 @@ void BgBlur::obs_video_render(void *data, gs_effect_t *_effect)
 	FilterData *filterD = (FilterData *)data;
 
 	if (filterD->isDisabled || !filterD->source || !obs_source_enabled(filterD->source))
-	{
-		if (filterD->source)
-			obs_source_skip_video_filter(filterD->source);
 		return;
-	}
 
 	uint32_t width = 0, height = 0;
+
 	if (!BgBlurGraphics::getRGBAFromStageSurface(filterD, width, height) || !filterD->maskEffect)
-	{
-		obs_source_skip_video_filter(filterD->source);
 		return;
-	}
 
 	/***
 	* Build mask
@@ -211,7 +205,6 @@ void BgBlur::obs_video_render(void *data, gs_effect_t *_effect)
 		if (!alphaTexture)
 		{
 			blog(LOG_ERROR, "Failed to create alpha texture");
-			obs_source_skip_video_filter(filterD->source);
 			return;
 		}
 	}
@@ -220,7 +213,6 @@ void BgBlur::obs_video_render(void *data, gs_effect_t *_effect)
 
 	if (!obs_source_process_filter_begin(filterD->source, GS_RGBA, OBS_ALLOW_DIRECT_RENDERING))
 	{
-		obs_source_skip_video_filter(filterD->source);
 		gs_texture_destroy(alphaTexture);
 		gs_texture_destroy(blurredTexture);
 		return;
