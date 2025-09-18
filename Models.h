@@ -6,8 +6,7 @@
 #include <memory>
 #include <vector>
 
-#define MODEL_MEDIAPIPE "mediapipe.onnx"
-
+//#define MODEL_MEDIAPIPE "mediapipe.onnx"
 //#define MODEL_SINET "SINet_Softmax_simple.onnx"
 //#define MODEL_SELFIE "selfie_segmentation.onnx"
 //#define MODEL_RVM "rvm_mobilenetv3_fp32.onnx"
