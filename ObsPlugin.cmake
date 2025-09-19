@@ -14,12 +14,12 @@ target_link_libraries(sl-bgblur-filter PRIVATE
     "${_this_dir}/opencv/zlib.lib"
 
     # Debugging
-    "${_this_dir}/opencv/opencv_imgcodecs480.lib"
-    "${_this_dir}/opencv/libjpeg-turbo.lib"
-    "${_this_dir}/opencv/libopenjp2.lib"
-    "${_this_dir}/opencv/libpng.lib"
-    "${_this_dir}/opencv/libtiff.lib"
-    "${_this_dir}/opencv/IlmImf.lib"
+   #"${_this_dir}/opencv/opencv_imgcodecs480.lib"
+   #"${_this_dir}/opencv/libjpeg-turbo.lib"
+   #"${_this_dir}/opencv/libopenjp2.lib"
+   #"${_this_dir}/opencv/libpng.lib"
+   #"${_this_dir}/opencv/libtiff.lib"
+   #"${_this_dir}/opencv/IlmImf.lib"
 )
 
 target_include_directories(sl-bgblur-filter PRIVATE "${_this_dir}/opencv/include")
