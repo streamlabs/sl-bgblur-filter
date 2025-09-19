@@ -3,20 +3,29 @@
 # Directory where this .cmake file lives
 set(_this_dir "${CMAKE_CURRENT_LIST_DIR}")
 
-include("${_this_dir}/cmake/FetchOpenCV.cmake")
-
 add_library(sl-bgblur-filter MODULE)
 add_library(OBS::sl-bgblur-filter ALIAS sl-bgblur-filter)
 
 target_link_libraries(sl-bgblur-filter PRIVATE OBS::libobs)
-target_link_libraries(sl-bgblur-filter PRIVATE OpenCV)
 target_link_libraries(sl-bgblur-filter PRIVATE "${_this_dir}/onnx/onnxruntime.lib")
+target_link_libraries(sl-bgblur-filter PRIVATE
+    "${_this_dir}/opencv/opencv_imgproc481.lib"
+    "${_this_dir}/opencv/opencv_core481.lib"
+    "${_this_dir}/opencv/zlib.lib"
 
+    # Debugging
+   #"${_this_dir}/opencv/opencv_imgcodecs480.lib"
+   #"${_this_dir}/opencv/libjpeg-turbo.lib"
+   #"${_this_dir}/opencv/libopenjp2.lib"
+   #"${_this_dir}/opencv/libpng.lib"
+   #"${_this_dir}/opencv/libtiff.lib"
+   #"${_this_dir}/opencv/IlmImf.lib"
+)
+
+target_include_directories(sl-bgblur-filter PRIVATE "${_this_dir}/opencv/include")
 target_include_directories(sl-bgblur-filter PRIVATE "${_this_dir}/onnx")
 
-target_link_options(sl-bgblur-filter PRIVATE
-    "/IGNORE:4099" # Ignore PDB warnings
-)
+target_link_options(sl-bgblur-filter PRIVATE "/IGNORE:4099")
 
 target_sources(sl-bgblur-filter PRIVATE
     "${_this_dir}/sl-bgblur-filter.cpp"
