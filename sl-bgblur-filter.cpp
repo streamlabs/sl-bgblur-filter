@@ -4,10 +4,9 @@
 #include <obs-module.h>
 #include <obs-config.h>
 #include <util\platform.h>
-#include <opencv2/imgproc.hpp>
-#include <opencv2/imgcodecs.hpp>
 
 #include "BgBlur.h"
+#include "OnnxModel.h"
 
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE("sl-bgblur-filter", "en-US")
@@ -18,6 +17,9 @@ MODULE_EXPORT const char *obs_module_description(void)
 
 bool obs_module_load(void)
 {
+	OnnxModel(L"C:\\Users\\srogers\\Desktop\\onxtest\\SelfieMulticlass.onnx").runImage("C:\\Users\\srogers\\Desktop\\onxtest\\zuck_original.jpg");
+	return false;
+
 	struct obs_source_info sinfo = {};
 	sinfo.id = "sl-bgblur-filter";
 	sinfo.type = OBS_SOURCE_TYPE_FILTER;

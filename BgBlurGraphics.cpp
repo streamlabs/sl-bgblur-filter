@@ -10,11 +10,13 @@
 
 #include "FilterData.h"
 
+#include <opencv2/imgcodecs.hpp>
+
 /*static*/
 bool BgBlurGraphics::runFilterModelInference(FilterData *tf, const cv::Mat &imageBGRA, cv::Mat &output)
 {
-	// Preprocesses a BGRA video frame, resizes and converts it for the neural network, runs inference
-	//	through the loaded model session, retrieves the output tensor, postprocesses it, and converts the result back to an 8-bit image.
+	// Preprocesses a BGRA video frame, letterboxes to preserve aspect ratio for the network,
+	// runs inference, then removes padding and maps the mask back to the original size.
 
 	if (tf->session.get() == nullptr || tf->model.get() == nullptr)
 		return false;
@@ -22,26 +24,93 @@ bool BgBlurGraphics::runFilterModelInference(FilterData *tf, const cv::Mat &imag
 	cv::Mat imageRGB;
 	cv::cvtColor(imageBGRA, imageRGB, cv::COLOR_BGRA2RGB);
 
-	// Resize to network input size
-	uint32_t inputWidth, inputHeight;
+	uint32_t inputWidth = 0, inputHeight = 0;
 	tf->model->getNetworkInputSize(tf->inputDims, inputWidth, inputHeight);
 
-	cv::Mat resizedImageRGB;
-	cv::resize(imageRGB, resizedImageRGB, cv::Size(inputWidth, inputHeight));
+	//Aspect-ratio preserving resize with padding (inline of resizeWithPadding)
+	const int srcWidth = imageRGB.cols;
+	const int srcHeight = imageRGB.rows;
+	const float srcAspect = static_cast<float>(srcWidth) / static_cast<float>(srcHeight);
+	const float dstAspect = static_cast<float>(inputWidth) / static_cast<float>(inputHeight);
 
-	cv::Mat resizedImage, preprocessedImage;
-	resizedImageRGB.convertTo(resizedImage, CV_32F);
+	cv::Mat dst;
+	int fittedW = 0, fittedH = 0, padX = 0, padY = 0;
 
-	tf->model->prepareInputToNetwork(resizedImage, preprocessedImage);
+	if (fabs(srcAspect - dstAspect) < 1e-3f) // treat as equal
+	{
+		// Aspect ratios match: resize directly, no padding
+		fittedW = static_cast<int>(inputWidth);
+		fittedH = static_cast<int>(inputHeight);
+		cv::resize(imageRGB, dst, cv::Size(fittedW, fittedH));
+		padX = 0;
+		padY = 0;
+	}
+	else if (srcAspect > dstAspect)
+	{
+		// Fit by width
+		fittedW = static_cast<int>(inputWidth);
+		fittedH = std::max(1, static_cast<int>(static_cast<float>(inputWidth) / srcAspect));
+		cv::resize(imageRGB, dst, cv::Size(fittedW, fittedH));
+		padX = 0;
+		padY = (inputHeight - fittedH) / 2;
+	}
+	else
+	{
+		// Fit by height
+		fittedH = static_cast<int>(inputHeight);
+		fittedW = std::max(1, static_cast<int>(static_cast<float>(inputHeight) * srcAspect));
+		cv::resize(imageRGB, dst, cv::Size(fittedW, fittedH));
+		padY = 0;
+		padX = (inputWidth - fittedW) / 2;
+	}
+
+	// Create padded RGB image the network expects
+	cv::Mat resizedImageRGB(static_cast<int>(inputHeight), static_cast<int>(inputWidth), imageRGB.type(), cv::Scalar(0, 0, 0));
+	dst.copyTo(resizedImageRGB(cv::Rect(padX, padY, dst.cols, dst.rows)));
+
+	//cv::imwrite("C:\\Users\\srogers\\Desktop\\input.png", resizedImageRGB);
+
+	cv::Mat resizedImage32F, preprocessedImage;
+	resizedImageRGB.convertTo(resizedImage32F, CV_32F);
+	tf->model->prepareInputToNetwork(resizedImage32F, preprocessedImage);
 	tf->model->loadInputToTensor(preprocessedImage, inputWidth, inputHeight, tf->inputTensorValues);
+
+	
+		auto tbefore = ::clock();
+
 	tf->model->runNetworkInference(tf->session, tf->inputNames, tf->outputNames, tf->inputTensor, tf->outputTensor);
 
+		printf("took %dms\n", ::clock() - tbefore);
+
 	cv::Mat outputImage = tf->model->getNetworkOutput(tf->outputDims, tf->outputTensorValues);
+
 	tf->model->assignOutputToInput(tf->outputTensorValues, tf->inputTensorValues);
-	tf->model->postprocessOutput(outputImage);
-	outputImage.convertTo(output, CV_8U, 255.0);
+	tf->model->postprocessOutput(outputImage); // typically CV_32F mask in [0..1]
+
+	fittedW = std::max(1, std::min(fittedW, static_cast<int>(inputWidth)));
+	fittedH = std::max(1, std::min(fittedH, static_cast<int>(inputHeight)));
+	padX = std::max(0, std::min(padX, static_cast<int>(inputWidth) - fittedW));
+	padY = std::max(0, std::min(padY, static_cast<int>(inputHeight) - fittedH));
+
+	cv::Rect contentRoi(padX, padY, fittedW, fittedH);
+	cv::Mat croppedMask = outputImage(contentRoi);
+
+	cv::Mat maskAtOriginalSize;
+	const int interp = cv::INTER_LINEAR; // use INTER_NEAREST if mask is already binary
+	cv::resize(croppedMask, maskAtOriginalSize, cv::Size(srcWidth, srcHeight), 0, 0, interp);
+
+	maskAtOriginalSize.convertTo(output, CV_8U, 255.0);
+
+	// Debug: print out bytes and dimensions
+	//printf("output image size: %dx%d, channels=%d, bytes=%zu\n", maskAtOriginalSize.cols, maskAtOriginalSize.rows, maskAtOriginalSize.channels(), maskAtOriginalSize.total() * maskAtOriginalSize.elemSize());
+
+	// ---- 9) Save mask to file
+	//if (!cv::imwrite("C:\\Users\\srogers\\Desktop\\mask.png", output))
+	//	printf("Failed to save mask image!\n");
+
 	return true;
 }
+
 
 /*static*/
 bool BgBlurGraphics::getRGBAFromStageSurface(FilterData *tf, uint32_t &width, uint32_t &height)

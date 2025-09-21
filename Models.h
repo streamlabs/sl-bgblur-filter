@@ -1,5 +1,6 @@
 #pragma once
 
+
 #include <onnxruntime_cxx_api.h>
 #include <opencv2/imgproc.hpp>
 #include <algorithm>
@@ -60,6 +61,19 @@ public:
 				if (i == -1)
 					i = 1;
 			}
+		}
+
+		for (int i = 0; i < inputDims.size(); ++i)
+		{
+			for (int j = 0; j < inputDims[i].size(); ++j)
+				printf("inputDims[%d][%d] = %d\n", i, j, (int)inputDims[i][j]);
+		}
+
+		
+		for (int i = 0; i < outputDims.size(); ++i)
+		{
+			for (int j = 0; j < outputDims[i].size(); ++j)
+				printf("outputDims[%d][%d] = %d\n", i, j, (int)inputDims[i][j]);
 		}
 
 		return inputDims[0].size() >= 3 && outputDims[0].size() >= 3;
@@ -265,6 +279,55 @@ public:
 		cv::normalize(outputImageSplit[1], outputImage, 1.0, 0.0, cv::NORM_MINMAX);
 	}
 };
+
+// SelfieMulticlass.onnx
+
+
+// todo: postprocessOutput for 1 channel
+
+class ModelSelfieMulticlass : public Model
+{
+public:
+	ModelSelfieMulticlass() = default;
+	~ModelSelfieMulticlass() override = default;
+
+	// Match your “working” sample: scale to [0,1], no extra mean/std.
+	void prepareInputToNetwork(cv::Mat &resizedImage, cv::Mat &preprocessedImage) override { resizedImage.convertTo(preprocessedImage, CV_32F, 1.0 / 255.0); }
+
+	// getNetworkOutput(): use base (BHWC/NHWC -> CV_32F(C) Mat) — already correct.
+	// H = outputDims[0][1], W = outputDims[0][2], C = outputDims[0][3]. :contentReference[oaicite:2]{index=2}
+
+	// Postprocess: keep BACKGROUND only (categories[0]), return single-channel [0,1].
+	void postprocessOutput(cv::Mat &output) override
+	{
+		const int C = output.channels();
+
+		// If multi-class (e.g., 6), split and keep channel 0 (background).
+		if (C > 1)
+		{
+			std::vector<cv::Mat> ch;
+			cv::split(output, ch); // ch[0]..ch[C-1], each CV_32F HxW
+			ch[0].copyTo(output);  // background only
+		}
+
+		// Ensure output is single-channel float in [0,1]
+		double minv = 0.0, maxv = 0.0;
+		cv::minMaxLoc(output, &minv, &maxv);
+		if (std::isfinite(minv) && std::isfinite(maxv) && maxv > minv)
+		{
+			cv::normalize(output, output, 1.0, 0.0, cv::NORM_MINMAX);
+		}
+		else
+		{
+			// Clamp if it's already roughly [0,1]
+			cv::threshold(output, output, 0.0, 0.0, cv::THRESH_TOZERO);
+			cv::threshold(output, output, 1.0, 1.0, cv::THRESH_TRUNC);
+		}
+	}
+};
+
+
+
 
 struct ORTModelData
 {
