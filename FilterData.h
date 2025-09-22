@@ -3,25 +3,17 @@
 #include <obs.h>
 #include <obs-module.h>
 
+#include "Models.h"
+
 #define MASK_EFFECT_PATH "mask_alpha_filter.effect"
 #define KAWASE_BLUR_EFFECT_PATH "kawase_blur.effect"
-
-#define USEGPU_CPU "cpu"
-#define USEGPU_DML "dml"
-#define USEGPU_CUDA "cuda"
-#define USEGPU_TENSORRT "tensorrt"
-#define USEGPU_COREML "coreml"
-
-class OnnxModel;
 
 struct FilterData : public ORTModelData
 {
 public:
 	// Inference / Model configuration 
-	std::string useGPU = USEGPU_CPU;
-	uint32_t numThreads = 1;
+	std::unique_ptr<Model> model;
 	std::string modelSelection;
-	std::unique_ptr<OnnxModel> model;
 	std::wstring modelFilepath;
 	std::mutex modelMutex;
 

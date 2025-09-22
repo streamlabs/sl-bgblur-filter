@@ -248,15 +248,15 @@ int BgBlurGraphics::createOrtSession(FilterData *tf)
 	Ort::SessionOptions sessionOptions;
 	sessionOptions.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
 
-	if (tf->useGPU != USEGPU_CPU)
+	//if (tf->useGPU != USEGPU_CPU)
+	//{
+	//	sessionOptions.DisableMemPattern();
+	//	sessionOptions.SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
+	//}
+	//else
 	{
-		sessionOptions.DisableMemPattern();
-		sessionOptions.SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
-	}
-	else
-	{
-		sessionOptions.SetInterOpNumThreads(tf->numThreads);
-		sessionOptions.SetIntraOpNumThreads(tf->numThreads);
+		sessionOptions.SetInterOpNumThreads(1);
+		sessionOptions.SetIntraOpNumThreads(1);
 	}
 
 	auto modelFilepath = (std::filesystem::path(obs_get_module_binary_path(obs_current_module())).parent_path() / tf->modelSelection);
