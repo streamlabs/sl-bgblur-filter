@@ -66,6 +66,9 @@ void OnnxModel::runImage(const cv::Mat &image, const int cv, std::map<Category, 
 		static std::vector<int64_t> input_dims = {1, h, w, 3};
 		static size_t input_tensor_size = h * w * 3;
 
+		const int srcWidth = image.cols;
+		const int srcHeight = image.rows;
+
 		cv::Mat resized, rgb;
 		cv::resize(image, resized, cv::Size(w, h));
 		cv::cvtColor(resized, rgb, cv);
@@ -102,13 +105,14 @@ void OnnxModel::runImage(const cv::Mat &image, const int cv, std::map<Category, 
 					mask.at<float>(y, x) = output_data[(y * out_w * num_classes) + (x * num_classes) + c];
 			}
 
-			// Normalize 0–255
-			double minVal, maxVal;
-			cv::minMaxLoc(mask, &minVal, &maxVal);
-			cv::Mat mask_u8;
-			mask.convertTo(mask_u8, CV_8U, 255.0 / (maxVal - minVal + 1e-6), -minVal);
+			cv::Mat maskAtOriginalSize;
+			const int interp = cv::INTER_LINEAR; // use INTER_NEAREST if mask is already binary
+			cv::resize(mask, maskAtOriginalSize, cv::Size(srcWidth, srcHeight), 0, 0, interp);
 
-			output[(Category)c] = mask_u8;
+			if (c == Category::CATEGORY_BACKGROUND_INVERSE)
+				maskAtOriginalSize.convertTo(output[(Category)c], CV_8U, -255.0, 255.0);
+			else
+				maskAtOriginalSize.convertTo(output[(Category)c], CV_8U, 255.0);
 		}
 	}
 	catch (const Ort::Exception &e)
