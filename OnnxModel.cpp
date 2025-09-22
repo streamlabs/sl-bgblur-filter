@@ -54,6 +54,7 @@ OnnxModel::OnnxModel(const std::wstring &onnxPath) :
 		std::string msg = "ONNX Runtime error: " + std::string(e.what());
 		printf("%s\n", msg.c_str());
 		blog(LOG_ERROR, "%s", msg.c_str());
+		m_session = nullptr;
 	}
 
 }
@@ -63,7 +64,7 @@ OnnxModel::~OnnxModel()
 	m_session = nullptr;
 }
 
-void OnnxModel::runImage(const cv::Mat &image, const int cv, std::map<Category, cv::Mat> &output)
+bool OnnxModel::runImage(const cv::Mat &image, const int cv, std::map<Category, cv::Mat> &output)
 {
 	try
 	{
@@ -111,15 +112,11 @@ void OnnxModel::runImage(const cv::Mat &image, const int cv, std::map<Category, 
 				for (int x = 0; x < out_w; x++)
 					mask.at<float>(y, x) = output_data[(y * out_w * num_classes) + (x * num_classes) + c];
 			}
-	
-			cv::Mat maskAtOriginalSize;
-			const int interp = cv::INTER_LINEAR; // use INTER_NEAREST if mask is already binary
-			cv::resize(mask, maskAtOriginalSize, cv::Size(srcWidth, srcHeight), 0, 0, interp);
-	
+		
 			if (c == Category::CATEGORY_BACKGROUND_INVERSE)
-				maskAtOriginalSize.convertTo(output[(Category)c], CV_8U, -255.0, 255.0);
+				mask.convertTo(output[(Category)c], CV_8U, 255.0);
 			else
-				maskAtOriginalSize.convertTo(output[(Category)c], CV_8U, 255.0);
+				mask.convertTo(output[(Category)c], CV_8U, -255.0, 255.0);
 		}
 	}
 	catch (const Ort::Exception &e)
@@ -127,21 +124,28 @@ void OnnxModel::runImage(const cv::Mat &image, const int cv, std::map<Category, 
 		std::string msg = "ONNX Runtime error: " + std::string(e.what());
 		printf("%s\n", msg.c_str());
 		blog(LOG_ERROR, "%s", msg.c_str());
+		return false;
 	}
+
+	return true;
 }
 
-void OnnxModel::runImageDisk(const std::string& imgPath)
+bool OnnxModel::runImageDisk(const std::string &imgPath)
 {
 	static std::vector<std::string> categories = {"background", "hair", "body-skin", "face-skin", "clothes", "others"};
 
 	std::map<Category, cv::Mat> output;
-	runImage(cv::imread(imgPath), cv::COLOR_BGR2RGB, output);
+
+	if (!runImage(cv::imread(imgPath), cv::COLOR_BGR2RGB, output))
+		return false;
 
 	for (auto& itr : output)
 	{
 		std::string out_path = "C:\\Users\\srogers\\Desktop\\onxtest/" + categories[itr.first] + ".png";
 		cv::imwrite(out_path, itr.second);
 	}
+
+	return true;
 }
 
 std::wstring OnnxModel::getTempFilePath(const std::wstring &fileName)

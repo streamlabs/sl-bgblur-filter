@@ -4,13 +4,8 @@
 #define NOMINMAX
 #endif
 
-
 #include <obs.h>
 #include <obs-module.h>
-
-#include <opencv2/core/types.hpp>
-#include <onnxruntime_cxx_api.h>
-#include <cpu_provider_factory.h>
 
 struct FilterData;
 
@@ -41,20 +36,11 @@ public:
 private:
 	BgBlur();
 	~BgBlur();
-
-protected:
-	#define OBS_BGREMOVAL_ORT_SESSION_ERROR_FILE_NOT_FOUND 1
-	#define OBS_BGREMOVAL_ORT_SESSION_ERROR_INVALID_MODEL 2
-	#define OBS_BGREMOVAL_ORT_SESSION_ERROR_INVALID_INPUT_OUTPUT 3
-	#define OBS_BGREMOVAL_ORT_SESSION_ERROR_STARTUP 5
-	#define OBS_BGREMOVAL_ORT_SESSION_SUCCESS 0
 };
 
 class BgBlurGraphics
 {
 public:
-	static int createOrtSession(FilterData *tf);
-	static bool runFilterModelInference(FilterData *tf, const cv::Mat &imageBGRA, cv::Mat &output);
 	static bool getRGBAFromStageSurface(FilterData *tf, uint32_t &width, uint32_t &height);
 	static gs_texture_t* blurBackground(FilterData *tf, uint32_t width, uint32_t height, gs_texture_t *alphaTexture);
 };

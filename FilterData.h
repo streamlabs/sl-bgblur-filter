@@ -3,18 +3,20 @@
 #include <obs.h>
 #include <obs-module.h>
 
-#include "Models.h"
+#include <opencv2/core/types.hpp>
+#include <onnxruntime_cxx_api.h>
+#include <cpu_provider_factory.h>
+
+#include "OnnxModel.h"
 
 #define MASK_EFFECT_PATH "mask_alpha_filter.effect"
 #define KAWASE_BLUR_EFFECT_PATH "kawase_blur.effect"
 
-struct FilterData : public ORTModelData
+struct FilterData
 {
 public:
 	// Inference / Model configuration 
-	std::unique_ptr<Model> model;
-	std::string modelSelection;
-	std::wstring modelFilepath;
+	std::unique_ptr<OnnxModel> model;
 	std::mutex modelMutex;
 
 	// OBS / Graphics handles
@@ -25,14 +27,11 @@ public:
 	gs_effect_t *kawaseBlurEffect = nullptr;
 
 	// Frame data
+	cv::Mat lastSmallBackgroundMask;
+	cv::Mat lastFullBackgroundMask;
+	cv::Mat lastFullBGRA;
 	cv::Mat inputBGRA;
-	cv::Mat backgroundMask;
-	cv::Mat lastBackgroundMask;
-	cv::Mat lastImageBGRA;
-
-	// Concurrency
-	std::mutex inputBGRALock;
-	std::mutex outputLock;
+	std::map<OnnxModel::Category, cv::Mat> lastOnnxOutput;
 
 	// State flags
 	bool isDisabled = false;
@@ -44,8 +43,7 @@ public:
 	float contourFilter = 0.05f; 
 	float smoothContour = 1.0f;  
 	float feather = 0.0f;        
-	int maskEveryXFrames = 1;    
-	int maskEveryXFramesCount = 0;
+	clock_t lastModelRun = 0;
 
 	// Similarity & temporal smoothing
 	float temporalSmoothFactor = 0.5f;     

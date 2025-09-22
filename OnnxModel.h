@@ -24,11 +24,13 @@ public:
 	};
 
 public:
-	OnnxModel(const std::wstring& onnxPath);
+	OnnxModel(const std::wstring &onnxPath);
 	~OnnxModel();
 
-	void runImageDisk(const std::string &imgPath);
-	void runImage(const cv::Mat &image, const int cv, std::map<Category, cv::Mat> &output);
+	bool isGood() const { return m_session != nullptr; }
+
+	bool runImageDisk(const std::string &imgPath);
+	bool runImage(const cv::Mat &image, const int cv, std::map<Category, cv::Mat> &output);
 
 private:
 	std::wstring getTempFilePath(const std::wstring &fileName);
