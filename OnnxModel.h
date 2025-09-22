@@ -31,6 +31,8 @@ public:
 	void runImage(const cv::Mat &image, const int cv, std::map<Category, cv::Mat> &output);
 
 private:
+	std::wstring getTempFilePath(const std::wstring &fileName);
+
 	Ort::Env m_env;
 	std::unique_ptr<Ort::Session> m_session;
 	Ort::MemoryInfo m_memInfo;
