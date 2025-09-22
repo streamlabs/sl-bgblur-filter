@@ -9,19 +9,40 @@ OnnxModel::OnnxModel(const std::wstring &onnxPath) :
 {
 	try
 	{
+		Ort::AllocatorWithDefaultOptions allocator;
+
 		// Init ONNX
 		Ort::SessionOptions session_options;
 		session_options.SetIntraOpNumThreads(1);
+
+		session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+		session_options.DisableMemPattern();
+		session_options.SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
+
+		OrtDmlApi *dmlApi = nullptr;
+		Ort::ThrowOnError(Ort::GetApi().GetExecutionProviderApi("DML", ORT_API_VERSION, (const void **)&dmlApi));
+		Ort::ThrowOnError(dmlApi->SessionOptionsAppendExecutionProvider_DML(session_options, 0));
+
 		m_session = std::make_unique<Ort::Session>(m_env, onnxPath.c_str(), session_options);
 
-		m_inputNamesStr = m_session->GetInputNames();
-		m_outputNamesStr = m_session->GetOutputNames();
+		size_t numInputs = m_session->GetInputCount();
+		size_t numOutputs = m_session->GetOutputCount();
 
-		for (auto &n : m_inputNamesStr)
-			m_inputNamesCstr.push_back(n.c_str());
+		// Fetch input names
+		for (size_t i = 0; i < numInputs; i++)
+		{
+			Ort::AllocatedStringPtr nameAllocated = m_session->GetInputNameAllocated(i, allocator);
+			m_inputNamesStr.push_back(nameAllocated.get());
+			m_inputNamesCstr.push_back(m_inputNamesStr.back().c_str());
+		}
 
-		for (auto &n : m_outputNamesStr)
-			m_outputNamesCstr.push_back(n.c_str());
+		// Fetch output names
+		for (size_t i = 0; i < numOutputs; i++)
+		{
+			Ort::AllocatedStringPtr nameAllocated = m_session->GetOutputNameAllocated(i, allocator);
+			m_outputNamesStr.push_back(nameAllocated.get());
+			m_outputNamesCstr.push_back(m_outputNamesStr.back().c_str());
+		}
 	}
 	catch (const Ort::Exception &e)
 	{
@@ -37,48 +58,34 @@ OnnxModel::~OnnxModel()
 	m_session = nullptr;
 }
 
-void OnnxModel::runImage(const std::string &imgPath)
+void OnnxModel::runImage(const cv::Mat &image, const int cv, std::map<Category, cv::Mat> &output)
 {
-
 	try
 	{
+		static int h = 256, w = 256;
+		static std::vector<int64_t> input_dims = {1, h, w, 3};
+		static size_t input_tensor_size = h * w * 3;
 
-		// Categories (same order as training)
-		std::vector<std::string> categories = {"background", "hair", "body-skin", "face-skin", "clothes", "others"};
-
-		// Load image
-		cv::Mat image_bgr = cv::imread(imgPath);
-
-
-		int h = 256, w = 256;
 		cv::Mat resized, rgb;
-		cv::resize(image_bgr, resized, cv::Size(w, h));
-		cv::cvtColor(resized, rgb, cv::COLOR_BGR2RGB);
+		cv::resize(image, resized, cv::Size(w, h));
+		cv::cvtColor(resized, rgb, cv);
 
 		// Convert to float32 NHWC
 		rgb.convertTo(rgb, CV_32F, 1.0 / 255.0);
 
-		std::vector<int64_t> input_dims = {1, h, w, 3}; // NHWC
-		size_t input_tensor_size = h * w * 3;
-		std::vector<float> input_tensor_values(input_tensor_size);
-
-		// Copy data (Mat is row-major NHWC already)
-		std::memcpy(input_tensor_values.data(), rgb.data, input_tensor_size * sizeof(float));
-
 		// Create input tensor
-		Ort::Value input_tensor = Ort::Value::CreateTensor<float>(m_memInfo, input_tensor_values.data(), input_tensor_size, input_dims.data(), input_dims.size());
+		std::vector<float> inputTensors(input_tensor_size);
+		std::memcpy(inputTensors.data(), rgb.data, input_tensor_size * sizeof(float));
 
+		Ort::Value input_tensor = Ort::Value::CreateTensor<float>(m_memInfo, inputTensors.data(), input_tensor_size, input_dims.data(), input_dims.size());
 		std::array<Ort::Value, 1> ort_inputs{std::move(input_tensor)};
 
-		auto tbefore = ::clock();
-
-		std::vector<Ort::Value> output_tensors = m_session->Run(Ort::RunOptions{nullptr}, m_inputNamesCstr.data(), ort_inputs.data(), ort_inputs.size(), m_outputNamesCstr.data(), 1);
-
-		printf("took %dms\n", ::clock() - tbefore);
+		// Run
+		std::vector<Ort::Value> outputTensors = m_session->Run(Ort::RunOptions{nullptr}, m_inputNamesCstr.data(), ort_inputs.data(), ort_inputs.size(), m_outputNamesCstr.data(), 1);
 
 		// Extract output (assume [1, H, W, C])
-		float *output_data = output_tensors.front().GetTensorMutableData<float>();
-		std::vector<int64_t> output_shape = output_tensors.front().GetTensorTypeAndShapeInfo().GetShape();
+		float *output_data = outputTensors.front().GetTensorMutableData<float>();
+		std::vector<int64_t> output_shape = outputTensors.front().GetTensorTypeAndShapeInfo().GetShape();
 
 		int out_h = static_cast<int>(output_shape[1]);
 		int out_w = static_cast<int>(output_shape[2]);
@@ -92,9 +99,7 @@ void OnnxModel::runImage(const std::string &imgPath)
 			for (int y = 0; y < out_h; y++)
 			{
 				for (int x = 0; x < out_w; x++)
-				{
 					mask.at<float>(y, x) = output_data[(y * out_w * num_classes) + (x * num_classes) + c];
-				}
 			}
 
 			// Normalize 0–255
@@ -103,9 +108,7 @@ void OnnxModel::runImage(const std::string &imgPath)
 			cv::Mat mask_u8;
 			mask.convertTo(mask_u8, CV_8U, 255.0 / (maxVal - minVal + 1e-6), -minVal);
 
-
-			std::string out_path = "C:\\Users\\srogers\\Desktop\\onxtest/" + categories[c] + ".png";
-			cv::imwrite(out_path, mask_u8);
+			output[(Category)c] = mask_u8;
 		}
 	}
 	catch (const Ort::Exception &e)
@@ -114,6 +117,18 @@ void OnnxModel::runImage(const std::string &imgPath)
 		printf("%s\n", msg.c_str());
 		blog(LOG_ERROR, "%s", msg.c_str());
 	}
+}
 
+void OnnxModel::runImageDisk(const std::string& imgPath)
+{
+	static std::vector<std::string> categories = {"background", "hair", "body-skin", "face-skin", "clothes", "others"};
 
+	std::map<Category, cv::Mat> output;
+	runImage(cv::imread(imgPath), cv::COLOR_BGR2RGB, output);
+
+	for (auto& itr : output)
+	{
+		std::string out_path = "C:\\Users\\srogers\\Desktop\\onxtest/" + categories[itr.first] + ".png";
+		cv::imwrite(out_path, itr.second);
+	}
 }

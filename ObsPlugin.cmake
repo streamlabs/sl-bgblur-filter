@@ -6,20 +6,49 @@ set(_this_dir "${CMAKE_CURRENT_LIST_DIR}")
 add_library(sl-bgblur-filter MODULE)
 add_library(OBS::sl-bgblur-filter ALIAS sl-bgblur-filter)
 
-target_link_libraries(sl-bgblur-filter PRIVATE OBS::libobs)
-target_link_libraries(sl-bgblur-filter PRIVATE "${_this_dir}/onnx/onnxruntime.lib")
-target_link_libraries(sl-bgblur-filter PRIVATE
-    "${_this_dir}/opencv/opencv_imgproc481.lib"
-    "${_this_dir}/opencv/opencv_core481.lib"
-    "${_this_dir}/opencv/zlib.lib"
 
-    # Debugging
-   "${_this_dir}/opencv/opencv_imgcodecs480.lib"
-   "${_this_dir}/opencv/libjpeg-turbo.lib"
-   "${_this_dir}/opencv/libopenjp2.lib"
-   "${_this_dir}/opencv/libpng.lib"
-   "${_this_dir}/opencv/libtiff.lib"
-   "${_this_dir}/opencv/IlmImf.lib"
+
+target_link_libraries(sl-bgblur-filter PRIVATE OBS::libobs)
+target_link_libraries(sl-bgblur-filter PRIVATE
+     "${_this_dir}/opencv/opencv_imgproc481.lib"
+     "${_this_dir}/opencv/opencv_core481.lib"
+     "${_this_dir}/opencv/zlib.lib"
+     
+     # Onnx
+     "${_this_dir}/onnx/onnxruntime_session.lib"
+     "${_this_dir}/onnx/onnxruntime_providers_shared.lib"
+     "${_this_dir}/onnx/onnxruntime_providers_dml.lib"
+     "${_this_dir}/onnx/onnxruntime_optimizer.lib"
+     "${_this_dir}/onnx/onnxruntime_providers.lib"
+     "${_this_dir}/onnx/onnxruntime_framework.lib"
+     "${_this_dir}/onnx/onnxruntime_graph.lib"
+     "${_this_dir}/onnx/onnxruntime_util.lib"
+     "${_this_dir}/onnx/onnxruntime_mlas.lib"
+     "${_this_dir}/onnx/onnxruntime_common.lib"
+     "${_this_dir}/onnx/onnxruntime_flatbuffers.lib"
+     "${_this_dir}/onnx/onnx.lib"
+     "${_this_dir}/onnx/onnx_proto.lib"
+     "${_this_dir}/onnx/libprotobuf-lite.lib"
+     "${_this_dir}/onnx/re2.lib"
+     "${_this_dir}/onnx/absl_throw_delegate.lib"
+     "${_this_dir}/onnx/absl_hash.lib"
+     "${_this_dir}/onnx/absl_city.lib"
+     "${_this_dir}/onnx/absl_low_level_hash.lib"
+     "${_this_dir}/onnx/absl_raw_hash_set.lib"
+     "${_this_dir}/onnx/DirectML.lib"
+     
+     "d3d12.lib"
+     "dxgi.lib"
+     "dxguid.lib"
+     "dxcore.lib"
+
+      # Debugging
+     "${_this_dir}/opencv/opencv_imgcodecs480.lib"
+     "${_this_dir}/opencv/libjpeg-turbo.lib"
+     "${_this_dir}/opencv/libopenjp2.lib"
+     "${_this_dir}/opencv/libpng.lib"
+     "${_this_dir}/opencv/libtiff.lib"
+     "${_this_dir}/opencv/IlmImf.lib"
 )
 
 target_include_directories(sl-bgblur-filter PRIVATE "${_this_dir}/opencv/include")
@@ -37,7 +66,7 @@ target_sources(sl-bgblur-filter PRIVATE
 
 add_custom_command(TARGET sl-bgblur-filter POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${_this_dir}/onnx/onnxruntime.dll"
+        "${_this_dir}/onnx/DirectML.dll"
         "${_this_dir}/bgblurdata/pphumanseg_fp32.onnx"
         "${_this_dir}/bgblurdata/mask_alpha_filter.effect"
         "${_this_dir}/bgblurdata/kawase_blur.effect"

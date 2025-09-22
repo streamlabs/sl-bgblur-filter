@@ -6,14 +6,30 @@
 #include <opencv2/core/types.hpp>
 #include <onnxruntime_cxx_api.h>
 #include <cpu_provider_factory.h>
+#include <dml_provider_factory.h>
+
+#include <map>
 
 class OnnxModel
 {
 public:
+	enum Category
+	{
+		CATEGORY_BACKGROUND,
+		CATEGORY_HAIR,
+		CATEGORY_BODY_SKIN,
+		CATEGORY_FACE_SKIN,
+		CATEGORY_CLOTHES,
+		CATEGORY_OTHERS,
+		CATEGORY_UNKNOWN
+	};
+
+public:
 	OnnxModel(const std::wstring& onnxPath);
 	~OnnxModel();
 
-	void runImage(const std::string &imgPath);
+	void runImageDisk(const std::string &imgPath);
+	void runImage(const cv::Mat &image, const int cv, std::map<Category, cv::Mat> &output);
 
 private:
 	Ort::Env m_env;

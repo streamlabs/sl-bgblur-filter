@@ -17,7 +17,7 @@ MODULE_EXPORT const char *obs_module_description(void)
 
 bool obs_module_load(void)
 {
-	OnnxModel(L"C:\\Users\\srogers\\Desktop\\onxtest\\SelfieMulticlass.onnx").runImage("C:\\Users\\srogers\\Desktop\\onxtest\\zuck_original.jpg");
+	OnnxModel(L"C:\\Users\\srogers\\Desktop\\onxtest\\SelfieMulticlass.onnx").runImageDisk("C:\\Users\\srogers\\Desktop\\onxtest\\zuck_original.jpg");
 	return false;
 
 	struct obs_source_info sinfo = {};
