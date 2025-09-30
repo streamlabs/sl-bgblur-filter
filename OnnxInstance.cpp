@@ -31,17 +31,18 @@ bool OnnxInstance::update()
 	if (m_model == nullptr)
 		return false;
 
-	if (!BgBlurGraphics::getRGBAFromStageSurface(m_maskWidth, m_maskHeight) || !m_maskEffect)
+	cv::Mat fullBGRA;
+
+	if (!BgBlurGraphics::getRGBAFromStageSurface(m_maskWidth, m_maskHeight, fullBGRA) || !m_maskEffect)
 		return false;
 
 	bool boolQueryOnnx = true;
-	cv::Mat fullBGRA = m_inputBGRA.clone();
 
 	// 10fps is fine because we use temporal smoothing
 	if (boolQueryOnnx && ::clock() - m_lastModelRun < 50)
 		boolQueryOnnx = false;
 
-	cv::Mat backgroundMask;
+	cv::Mat mask;
 
 	if (boolQueryOnnx)
 	{
@@ -49,40 +50,45 @@ bool OnnxInstance::update()
 		m_lastModelRun = ::clock();
 	}
 
-	auto bgRef = m_lastOnnxOutput[OnnxModel::CATEGORY_BACKGROUND_INVERSE].clone();
-
-	if (bgRef.empty())
-		return false;
-
-	if (m_temporalSmoothFactor <= 0 || m_lastSmallBackgroundMask.empty() || m_lastSmallBackgroundMask.size() != bgRef.size() || m_lastSmallBackgroundMask.type() != bgRef.type())
+	for (int i = 0; i < OnnxModel::CATEGORY_NUM_CAT; ++i)
 	{
-		m_lastSmallBackgroundMask = bgRef.clone();
+		auto cat = (OnnxModel::Category)i;
+		auto ref = m_lastOnnxOutput[cat].clone();
+
+		if (ref.empty())
+			return false;
+
+		if (m_temporalSmoothFactor <= 0 || m_lastSmallMask[cat].empty() || m_lastSmallMask[cat].size() != ref.size() || m_lastSmallMask[cat].type() != ref.type())
+		{
+			m_lastSmallMask[cat] = ref.clone();
+		}
+		else if (m_temporalSmoothFactor > 0)
+		{
+			const double f = std::clamp(m_temporalSmoothFactor, 0.0f, 1.0f);
+			cv::addWeighted(m_lastSmallMask[cat], f, ref, 1.0 - f, 0.0, m_lastSmallMask[cat]);
+		}
+
+		mask = m_lastSmallMask[cat].clone();
+
+		if (m_smoothContour > 0.0)
+		{
+			int k = (int)(3 + 11 * m_smoothContour);
+			if ((k & 1) == 0)
+				++k;
+
+			cv::stackBlur(mask, mask, cv::Size(k, k));
+		}
+
+		// Resize mask back to input image size
+		cv::resize(mask, mask, fullBGRA.size());
+
+		// If we smoothed, re-binarize
+		if (m_smoothContour > 0.0)
+			mask = mask > 128;
+
+		m_lastFullMask[cat] = mask;
+		m_lastFullBGRA[cat] = fullBGRA.clone();
 	}
-	else if (m_temporalSmoothFactor > 0)
-	{
-		const double f = std::clamp(m_temporalSmoothFactor, 0.0f, 1.0f);
-		cv::addWeighted(m_lastSmallBackgroundMask, f, bgRef, 1.0 - f, 0.0, m_lastSmallBackgroundMask);
-	}
 
-	backgroundMask = m_lastSmallBackgroundMask.clone();
-
-	if (m_smoothContour > 0.0)
-	{
-		int k = (int)(3 + 11 * m_smoothContour);
-		if ((k & 1) == 0)
-			++k;
-
-		cv::stackBlur(backgroundMask, backgroundMask, cv::Size(k, k));
-	}
-
-	// Resize mask back to input image size
-	cv::resize(backgroundMask, backgroundMask, fullBGRA.size());
-
-	// If we smoothed, re-binarize
-	if (m_smoothContour > 0.0)
-		backgroundMask = backgroundMask > 128;
-
-	m_lastFullBackgroundMask = backgroundMask;
-	m_lastFullBGRA = fullBGRA.clone();
 	return true;
 }

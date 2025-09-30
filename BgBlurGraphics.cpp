@@ -5,7 +5,7 @@
 #include <wchar.h>
 
 /*static*/
-bool BgBlurGraphics::getRGBAFromStageSurface(uint32_t &width, uint32_t &height)
+bool BgBlurGraphics::getRGBAFromStageSurface(uint32_t &width, uint32_t &height, cv::Mat& outputBGRA)
 {
 	// Captures a live video frame from a source, renders it to a texture, transfers it onto
 	//	a staging surface, maps it into CPU-accessible memory, then it wraps the pixel buffer into an OpenCV cv::Mat (BGRA format)
@@ -62,7 +62,7 @@ bool BgBlurGraphics::getRGBAFromStageSurface(uint32_t &width, uint32_t &height)
 	if (!gs_stagesurface_map(OnnxInstance::instance().m_stagesurface, &video_data, &linesize))
 		return false;
 
-	OnnxInstance::instance().m_inputBGRA = cv::Mat(height, width, CV_8UC4, video_data, linesize);
+	outputBGRA = cv::Mat(height, width, CV_8UC4, video_data, linesize);
 
 	gs_stagesurface_unmap(OnnxInstance::instance().m_stagesurface);
 	return true;

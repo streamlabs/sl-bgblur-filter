@@ -42,10 +42,9 @@ public:
 	gs_effect_t *m_kawaseBlurEffect = nullptr;
 
 	// Frame data
-	cv::Mat m_lastSmallBackgroundMask;
-	cv::Mat m_lastFullBackgroundMask;
-	cv::Mat m_lastFullBGRA;
-	cv::Mat m_inputBGRA;
+	std::map<OnnxModel::Category, cv::Mat> m_lastSmallMask;
+	std::map<OnnxModel::Category, cv::Mat> m_lastFullMask;
+	std::map<OnnxModel::Category, cv::Mat> m_lastFullBGRA;
 	std::map<OnnxModel::Category, cv::Mat> m_lastOnnxOutput;
 
 	// State flags

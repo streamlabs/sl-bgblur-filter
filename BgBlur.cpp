@@ -73,7 +73,7 @@ void BgBlur::obs_video_render(void *data, gs_effect_t *_effect)
 	* Rendering
 	*/
 
-	auto& backgroundMask = OnnxInstance::instance().m_lastFullBackgroundMask;
+	auto &backgroundMask = OnnxInstance::instance().m_lastFullMask[OnnxModel::CATEGORY_BACKGROUND_INVERSE];
 
 	gs_texture_t *alphaTexture = gs_texture_create(backgroundMask.cols, backgroundMask.rows, GS_R8, 1, (const uint8_t **)&backgroundMask.data, 0);
 	gs_texture_t *blurredTexture = BgBlurGraphics::blurBackground(OnnxInstance::instance().m_maskWidth, OnnxInstance::instance().m_maskHeight, alphaTexture);
@@ -113,7 +113,7 @@ void BgBlur::obs_defaults(obs_data_t *settings)
 {
 	obs_data_set_default_int(settings, "blur_background", 10);
 	obs_data_set_default_double(settings, "smooth_contour", 1.0);
-	obs_data_set_default_double(settings, "temporal_smooth_factor", 0.35);
+	obs_data_set_default_double(settings, "temporal_smooth_factor", 0.5);
 }
 
 /*static*/

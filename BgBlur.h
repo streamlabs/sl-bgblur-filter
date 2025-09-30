@@ -6,6 +6,7 @@
 
 #include <obs.h>
 #include <obs-module.h>
+#include <opencv2/core/types.hpp>
 
 /*static*/
 class BgBlur
@@ -39,6 +40,6 @@ private:
 class BgBlurGraphics
 {
 public:
-	static bool getRGBAFromStageSurface(uint32_t &width, uint32_t &height);
+	static bool getRGBAFromStageSurface(uint32_t &width, uint32_t &height, cv::Mat& outputBGRA);
 	static gs_texture_t* blurBackground(uint32_t width, uint32_t height, gs_texture_t *alphaTexture);
 };
