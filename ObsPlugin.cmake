@@ -32,8 +32,8 @@ target_sources(sl-bgblur-filter PRIVATE
     "${_this_dir}/sl-bgblur-filter.cpp"
     "${_this_dir}/BgBlur.cpp"
     "${_this_dir}/BgBlurGraphics.cpp"
-    "${_this_dir}/FilterData.cpp"
     "${_this_dir}/OnnxModel.cpp"
+    "${_this_dir}/OnnxInstance.cpp"
 )
 
 add_custom_command(TARGET sl-bgblur-filter POST_BUILD

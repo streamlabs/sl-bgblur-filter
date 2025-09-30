@@ -7,8 +7,6 @@
 #include <obs.h>
 #include <obs-module.h>
 
-struct FilterData;
-
 /*static*/
 class BgBlur
 {
@@ -41,6 +39,6 @@ private:
 class BgBlurGraphics
 {
 public:
-	static bool getRGBAFromStageSurface(FilterData *tf, uint32_t &width, uint32_t &height);
-	static gs_texture_t* blurBackground(FilterData *tf, uint32_t width, uint32_t height, gs_texture_t *alphaTexture);
+	static bool getRGBAFromStageSurface(uint32_t &width, uint32_t &height);
+	static gs_texture_t* blurBackground(uint32_t width, uint32_t height, gs_texture_t *alphaTexture);
 };

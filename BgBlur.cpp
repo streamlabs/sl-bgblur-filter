@@ -1,6 +1,6 @@
 #include "BgBlur.h"
 #include "OnnxModel.h"
-#include "FilterData.h"
+#include "OnnxInstance.h"
 
 #include <util\platform.h>
 
@@ -31,22 +31,16 @@ void *BgBlur::obs_create(obs_data_t *settings, obs_source_t *source)
 {
 	blog(LOG_INFO, "BgBlur::create");
 
+	AllocConsole();
+	freopen("conin$", "r", stdin);
+	freopen("conout$", "w", stdout);
+	freopen("conout$", "w", stderr);
+
 	auto modelFilepath = (std::filesystem::path(obs_get_module_binary_path(obs_current_module())).parent_path() / L"SelfieMulticlass.onnx");
+	OnnxInstance::instance().init(source, modelFilepath.wstring());
 
-	FilterData *filterD = new FilterData;
-	filterD->source = source;
-	filterD->texrender = gs_texrender_create(GS_BGRA, GS_ZS_NONE);
-	filterD->model = std::make_unique<OnnxModel>(modelFilepath.wstring().c_str());
-
-	if (!filterD->model->isGood())
-	{
-		blog(LOG_ERROR, "OnnxModel failed to init properly.");
-		delete filterD;
-		return nullptr;
-	}
-
-	obs_update_settings(filterD, settings);
-	return (void *)filterD;
+	obs_update_settings((void *)source, settings);
+	return (void *)source;
 }
 
 /*static*/
@@ -60,103 +54,54 @@ void BgBlur::obs_video_tick(void *data, float seconds)
 void BgBlur::obs_video_render(void *data, gs_effect_t *_effect)
 {
 	UNUSED_PARAMETER(_effect);
-	FilterData *filterD = (FilterData *)data;
+	obs_source_t* source = (obs_source_t*)data;
 
-	if (filterD->isDisabled || !filterD->source || !obs_source_enabled(filterD->source))
-		return;
-
-	uint32_t width = 0, height = 0;
-
-	if (!BgBlurGraphics::getRGBAFromStageSurface(filterD, width, height) || !filterD->maskEffect)
+	if (!obs_source_enabled(source))
 		return;
 
 	/***
 	* Build mask
 	*/
 
-	bool boolQueryOnnx = true;
-	cv::Mat fullBGRA = filterD->inputBGRA.clone();
-
-	// 10fps is fine because we use temporal smoothing
-	if (boolQueryOnnx && ::clock() - filterD->lastModelRun < 50)
-		boolQueryOnnx = false;
-		
-	cv::Mat backgroundMask;
-
-	if (boolQueryOnnx)
+	if (!OnnxInstance::instance().update())
 	{
-		filterD->model->runImage(fullBGRA, cv::COLOR_BGRA2RGB, filterD->lastOnnxOutput);
-		filterD->lastModelRun = ::clock();
-	}
-
-	auto bgRef = filterD->lastOnnxOutput[OnnxModel::CATEGORY_BACKGROUND_INVERSE].clone();
-
-	if (bgRef.empty())
+		obs_source_skip_video_filter(source);
 		return;
-
-	if (filterD->temporalSmoothFactor <= 0 || filterD->lastSmallBackgroundMask.empty() || filterD->lastSmallBackgroundMask.size() != bgRef.size() || filterD->lastSmallBackgroundMask.type() != bgRef.type())
-	{
-		filterD->lastSmallBackgroundMask = bgRef.clone();
 	}
-	else if (filterD->temporalSmoothFactor > 0)
-	{
-		const double f = std::clamp(filterD->temporalSmoothFactor, 0.0f, 1.0f);
-		cv::addWeighted(filterD->lastSmallBackgroundMask, f, bgRef, 1.0 - f, 0.0, filterD->lastSmallBackgroundMask);
-
-	}
-
-	backgroundMask = filterD->lastSmallBackgroundMask.clone();
-
-	if (filterD->smoothContour > 0.0)
-	{
-		int k = (int)(3 + 11 * filterD->smoothContour);
-		if ((k & 1) == 0)
-			++k;
-
-		cv::stackBlur(backgroundMask, backgroundMask, cv::Size(k, k));
-	}
-
-	// Resize mask back to input image size
-	cv::resize(backgroundMask, backgroundMask, fullBGRA.size());
-
-	// If we smoothed, re-binarize
-	if (filterD->smoothContour > 0.0)
-		backgroundMask = backgroundMask > 128;
-
-	filterD->lastFullBackgroundMask = backgroundMask;
-	filterD->lastFullBGRA = fullBGRA.clone();
 
 	/***
 	* Rendering
 	*/
 
-	gs_texture_t *alphaTexture = gs_texture_create(backgroundMask.cols, backgroundMask.rows, GS_R8, 1, (const uint8_t **)&backgroundMask.data, 0);
-	gs_texture_t *blurredTexture = BgBlurGraphics::blurBackground(filterD, width, height, alphaTexture);
+	auto& backgroundMask = OnnxInstance::instance().m_lastFullBackgroundMask;
 
-	if (!obs_source_process_filter_begin(filterD->source, GS_RGBA, OBS_ALLOW_DIRECT_RENDERING))
+	gs_texture_t *alphaTexture = gs_texture_create(backgroundMask.cols, backgroundMask.rows, GS_R8, 1, (const uint8_t **)&backgroundMask.data, 0);
+	gs_texture_t *blurredTexture = BgBlurGraphics::blurBackground(OnnxInstance::instance().m_maskWidth, OnnxInstance::instance().m_maskHeight, alphaTexture);
+
+	if (!obs_source_process_filter_begin(OnnxInstance::instance().m_source, GS_RGBA, OBS_ALLOW_DIRECT_RENDERING))
 	{
 		gs_texture_destroy(alphaTexture);
 		gs_texture_destroy(blurredTexture);
 		return;
 	}
 
-	gs_eparam_t *alphamask = gs_effect_get_param_by_name(filterD->maskEffect, "alphamask");
-	gs_eparam_t *blurredBackground = gs_effect_get_param_by_name(filterD->maskEffect, "blurredBackground");
+	gs_eparam_t *alphamask = gs_effect_get_param_by_name(OnnxInstance::instance().m_maskEffect, "alphamask");
+	gs_eparam_t *blurredBackground = gs_effect_get_param_by_name(OnnxInstance::instance().m_maskEffect, "blurredBackground");
 	gs_effect_set_texture(alphamask, alphaTexture);
 
-	if (filterD->blurBackground > 0)
+	if (OnnxInstance::instance().m_blurBackground > 0)
 		gs_effect_set_texture(blurredBackground, blurredTexture);
 
 	gs_blend_state_push();
 	gs_reset_blend_state();
 
 	const char *techName;
-	if (filterD->blurBackground > 0)
+	if (OnnxInstance::instance().m_blurBackground > 0)
 		techName = "DrawWithBlur";
 	else
 		techName = "DrawWithoutBlur";
 
-	obs_source_process_filter_tech_end(filterD->source, filterD->maskEffect, 0, 0, techName);
+	obs_source_process_filter_tech_end(source, OnnxInstance::instance().m_maskEffect, 0, 0, techName);
 
 	gs_blend_state_pop();
 	gs_texture_destroy(alphaTexture);
@@ -187,33 +132,30 @@ obs_properties_t *BgBlur::obs_properties(void *data)
 /*static*/
 void BgBlur::obs_update_settings(void *data, obs_data_t *settings)
 {
-	FilterData *filterD = (FilterData*)(data);
+	OnnxInstance::instance().m_isDisabled = true;
 
-	filterD->isDisabled = true;
-
-	filterD->blurBackground = obs_data_get_int(settings, "blur_background");
-	filterD->smoothContour = (float)obs_data_get_double(settings, "smooth_contour");
-	filterD->temporalSmoothFactor = (float)obs_data_get_double(settings, "temporal_smooth_factor");
+	OnnxInstance::instance().m_blurBackground = obs_data_get_int(settings, "blur_background");
+	OnnxInstance::instance().m_smoothContour = (float)obs_data_get_double(settings, "smooth_contour");
+	OnnxInstance::instance().m_temporalSmoothFactor = (float)obs_data_get_double(settings, "temporal_smooth_factor");
 
 	obs_enter_graphics();
 
-	gs_effect_destroy(filterD->maskEffect);
-	filterD->maskEffect = gs_effect_create_from_file((std::filesystem::path(obs_get_module_binary_path(obs_current_module())).parent_path() / MASK_EFFECT_PATH).string().c_str(), NULL);
+	gs_effect_destroy(OnnxInstance::instance().m_maskEffect);
+	OnnxInstance::instance().m_maskEffect = gs_effect_create_from_file((std::filesystem::path(obs_get_module_binary_path(obs_current_module())).parent_path() / MASK_EFFECT_PATH).string().c_str(), NULL);
 
-	gs_effect_destroy(filterD->kawaseBlurEffect);
-	filterD->kawaseBlurEffect = gs_effect_create_from_file((std::filesystem::path(obs_get_module_binary_path(obs_current_module())).parent_path() / KAWASE_BLUR_EFFECT_PATH).string().c_str(), NULL);
+	gs_effect_destroy(OnnxInstance::instance().m_kawaseBlurEffect);
+	OnnxInstance::instance().m_kawaseBlurEffect = gs_effect_create_from_file((std::filesystem::path(obs_get_module_binary_path(obs_current_module())).parent_path() / KAWASE_BLUR_EFFECT_PATH).string().c_str(), NULL);
 
 	obs_leave_graphics();
 
 	// enable
-	filterD->isDisabled = false;
+	OnnxInstance::instance().m_isDisabled = false;
 }
 
 /*static*/
 void BgBlur::obs_activate(void *data)
 {
-	FilterData* filterD = (FilterData*)data;
-	filterD->isDisabled = false;
+	OnnxInstance::instance().m_isDisabled = false;
 }
 
 /*static*/
@@ -221,29 +163,21 @@ void BgBlur::obs_destroy(void *data)
 {
 	blog(LOG_INFO, "BgBlur::destroy");
 
-	if (FilterData* filterD = (FilterData *)data)
-	{
-		filterD->isDisabled = true;
+	OnnxInstance::instance().m_isDisabled = true;
 
-		obs_enter_graphics();
-		gs_texrender_destroy(filterD->texrender);
+	obs_enter_graphics();
+	gs_texrender_destroy(OnnxInstance::instance().m_texrender);
 
-		if (filterD->stagesurface)
-			gs_stagesurface_destroy(filterD->stagesurface);
-		
-		gs_effect_destroy(filterD->maskEffect);
-		gs_effect_destroy(filterD->kawaseBlurEffect);
-		obs_leave_graphics();
+	if (OnnxInstance::instance().m_stagesurface)
+		gs_stagesurface_destroy(OnnxInstance::instance().m_stagesurface);
 
-		delete filterD;
-	}
+	gs_effect_destroy(OnnxInstance::instance().m_maskEffect);
+	gs_effect_destroy(OnnxInstance::instance().m_kawaseBlurEffect);
+	obs_leave_graphics();
 }
 
 /*static*/
 void BgBlur::obs_deactivate(void *data)
 {
-	FilterData *filterD = (FilterData *)data;
-	filterD->isDisabled = true;
+	OnnxInstance::instance().m_isDisabled = true;
 }
-
-
