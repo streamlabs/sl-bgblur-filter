@@ -22,38 +22,10 @@ public:
 		return a;
 	}
 
-	OnnxInstance* get(obs_source_t *source)
-	{
-		auto it = m_instances.find(source);
+	OnnxInstance *get(obs_source_t *source);
 
-		if (it == m_instances.end())
-			return nullptr;
-
-		return it->second.second.get();
-	}
-
-	void registerIncrementSource(obs_source_t *source)
-	{
-		auto it = m_instances.find(source);
-
-		if (it == m_instances.end())
-			m_instances[source] = std::make_pair(1, std::make_unique<OnnxInstance>(source));
-		else
-			it->second.first++;
-	}
-
-	void unregisterDeIncrementSource(obs_source_t *source)
-	{
-		auto it = m_instances.find(source);
-
-		if (it == m_instances.end())
-			return;
-
-		it->second.first--;
-
-		if (it->second.first <= 0)
-			m_instances.erase(it);
-	}
+	void registerIncrementSource(obs_source_t *source);
+	void unregisterDeIncrementSource(obs_source_t *source);
 
 private:
 	Onnx() = default;
@@ -67,15 +39,15 @@ private:
 
 class OnnxInstance
 {
-	friend class Onnx;
+friend class Onnx;
+
+public:
+	OnnxInstance();
+	~OnnxInstance();
 
 public:
 	void init(const std::wstring& onnxModelPath);
 	bool update(obs_source_t* source, gs_texrender_t* texrender, gs_stagesurf_t* stagesurface, OnnxModel::Category cat);
-
-private:
-	OnnxInstance();
-	~OnnxInstance();
 
 public:
 	uint32_t m_maskWidth = 0;

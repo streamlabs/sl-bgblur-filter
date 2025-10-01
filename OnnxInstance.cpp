@@ -1,6 +1,47 @@
 #include "OnnxInstance.h"
 #include "BgBlur.h"
 
+/**
+* Onnx
+*/
+
+OnnxInstance* Onnx::get(obs_source_t *source)
+{
+	auto it = m_instances.find(source);
+
+	if (it == m_instances.end())
+		return nullptr;
+
+	return it->second.second.get();
+}
+
+void Onnx::registerIncrementSource(obs_source_t *source)
+{
+	auto it = m_instances.find(source);
+
+	if (it == m_instances.end())
+		m_instances[source] = std::make_pair(1, std::make_unique<OnnxInstance>());
+	else
+		it->second.first++;
+}
+
+void Onnx::unregisterDeIncrementSource(obs_source_t *source)
+{
+	auto it = m_instances.find(source);
+
+	if (it == m_instances.end())
+		return;
+
+	it->second.first--;
+
+	if (it->second.first <= 0)
+		m_instances.erase(it);
+}
+
+/**
+* OnnxInstance
+*/
+
 OnnxInstance::OnnxInstance()
 {
 
