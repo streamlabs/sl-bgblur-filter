@@ -26,12 +26,16 @@ void OnnxInstance::init(const std::wstring &onnxModelPath)
 
 bool OnnxInstance::update(obs_source_t* source, gs_texrender_t* texrender, gs_stagesurf_t* stagesurface, OnnxModel::Category cat)
 {
+	// More than 1 filter may feed off of this. We don't want to duplicate the workload.
+	if (m_lastUpdate == obs_get_video_frame_time())
+		return true;
+
 	if (m_model == nullptr)
 		return false;
 
 	cv::Mat fullBGRA;
 
-	if (!BgBlurGraphics::getRGBAFromStageSurface(m_texrender, m_stagesurface, source, m_maskWidth, m_maskHeight, fullBGRA) || !m_maskEffect)
+	if (!BgBlurGraphics::getRGBAFromStageSurface(texrender, stagesurface, source, m_maskWidth, m_maskHeight, fullBGRA) || !m_maskEffect)
 		return false;
 
 	bool boolQueryOnnx = true;
@@ -86,5 +90,6 @@ bool OnnxInstance::update(obs_source_t* source, gs_texrender_t* texrender, gs_st
 
 	m_lastFullMask[cat] = mask;
 	m_lastFullBGRA[cat] = fullBGRA.clone();
+	m_lastUpdate = obs_get_video_frame_time();
 	return true;
 }

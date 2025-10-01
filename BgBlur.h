@@ -41,7 +41,7 @@ private:
 		obs_source_t* source = nullptr;
 		gs_texrender_t* texrender = nullptr;
 		gs_stagesurf_t* stagesurface = nullptr;
-		int64_t blurBackground = 10;
+		uint32_t blurBackground = 10;
 	};
 };
 
