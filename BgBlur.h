@@ -33,6 +33,9 @@ public:
 	static obs_properties_t* obs_properties(void* data);
 
 private:
+	static gs_texture_t *blurBackground(gs_texrender_t *texrender, gs_effect_t *kawaseBlurEffect, uint32_t amount, uint32_t width, uint32_t height, gs_texture_t *alphaTexture);
+
+private:
 	BgBlur();
 	~BgBlur();
 
@@ -43,11 +46,4 @@ private:
 		gs_stagesurf_t* stagesurface = nullptr;
 		uint32_t blurBackground = 10;
 	};
-};
-
-class BgBlurGraphics
-{
-public:	
-	static bool getRGBAFromStageSurface(gs_texrender_t* texrender, gs_stagesurf_t* stagesurface, obs_source_t* source, uint32_t& width, uint32_t& height, cv::Mat& outputBGRA);
-	static gs_texture_t *blurBackground(gs_texrender_t* texrender, gs_effect_t* kawaseBlurEffect, uint32_t amount, uint32_t width, uint32_t height, gs_texture_t *alphaTexture);
 };

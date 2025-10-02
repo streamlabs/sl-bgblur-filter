@@ -22,7 +22,7 @@ public:
 		return a;
 	}
 
-	OnnxInstance *get(obs_source_t *source);
+	OnnxInstance* get(obs_source_t *source);
 
 	void registerIncrementSource(obs_source_t *source);
 	void unregisterDeIncrementSource(obs_source_t *source);
@@ -70,6 +70,9 @@ public:
 	std::map<OnnxModel::Category, cv::Mat> m_lastFullMask;
 	std::map<OnnxModel::Category, cv::Mat> m_lastFullBGRA;
 	std::map<OnnxModel::Category, cv::Mat> m_lastOnnxOutput;
+
+private:
+	bool getRGBAFromStageSurface(gs_texrender_t* texrender, gs_stagesurf_t* stagesurface, obs_source_t* source, uint32_t& width, uint32_t& height, cv::Mat& outputBGRA);
 };
 
 #define MASK_EFFECT_PATH "mask_alpha_filter.effect"

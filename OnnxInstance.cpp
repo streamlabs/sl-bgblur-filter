@@ -5,7 +5,7 @@
 * Onnx
 */
 
-OnnxInstance* Onnx::get(obs_source_t *source)
+OnnxInstance* Onnx::get(obs_source_t* source)
 {
 	auto it = m_instances.find(source);
 
@@ -15,7 +15,7 @@ OnnxInstance* Onnx::get(obs_source_t *source)
 	return it->second.second.get();
 }
 
-void Onnx::registerIncrementSource(obs_source_t *source)
+void Onnx::registerIncrementSource(obs_source_t* source)
 {
 	auto it = m_instances.find(source);
 
@@ -25,7 +25,7 @@ void Onnx::registerIncrementSource(obs_source_t *source)
 		it->second.first++;
 }
 
-void Onnx::unregisterDeIncrementSource(obs_source_t *source)
+void Onnx::unregisterDeIncrementSource(obs_source_t* source)
 {
 	auto it = m_instances.find(source);
 
@@ -76,7 +76,7 @@ bool OnnxInstance::update(obs_source_t* source, gs_texrender_t* texrender, gs_st
 
 	cv::Mat fullBGRA;
 
-	if (!BgBlurGraphics::getRGBAFromStageSurface(texrender, stagesurface, source, m_maskWidth, m_maskHeight, fullBGRA) || !m_maskEffect)
+	if (!getRGBAFromStageSurface(texrender, stagesurface, source, m_maskWidth, m_maskHeight, fullBGRA) || !m_maskEffect)
 		return false;
 
 	bool boolQueryOnnx = true;
@@ -132,5 +132,69 @@ bool OnnxInstance::update(obs_source_t* source, gs_texrender_t* texrender, gs_st
 	m_lastFullMask[cat] = mask;
 	m_lastFullBGRA[cat] = fullBGRA.clone();
 	m_lastUpdate = obs_get_video_frame_time();
+	return true;
+}
+
+/*static*/
+bool OnnxInstance::getRGBAFromStageSurface(gs_texrender_t* texrender, gs_stagesurf_t* stagesurface, obs_source_t* source, uint32_t &width, uint32_t &height, cv::Mat &outputBGRA)
+{
+	// Captures a live video frame from a source, renders it to a texture, transfers it onto
+	//	a staging surface, maps it into CPU-accessible memory, then it wraps the pixel buffer into an OpenCV cv::Mat (BGRA format)
+
+	if (!obs_source_enabled(source))
+		return false;
+
+	obs_source_t* target = obs_filter_get_target(source);
+
+	if (!target)
+		return false;
+
+	width = obs_source_get_base_width(target);
+	height = obs_source_get_base_height(target);
+
+	if (width == 0 || height == 0)
+		return false;
+
+	gs_texrender_reset(texrender);
+
+	if (!gs_texrender_begin(texrender, width, height))
+		return false;
+
+	struct vec4 background;
+	vec4_zero(&background);
+	gs_clear(GS_CLEAR_COLOR, &background, 0.0f, 0);
+	gs_ortho(0.0f, static_cast<float>(width), 0.0f, static_cast<float>(height), -100.0f, 100.0f);
+	gs_blend_state_push();
+	gs_blend_function(GS_BLEND_ONE, GS_BLEND_ZERO);
+	obs_source_video_render(target);
+	gs_blend_state_pop();
+	gs_texrender_end(texrender);
+
+	if (stagesurface)
+	{
+		uint32_t stagesurf_width = gs_stagesurface_get_width(stagesurface);
+		uint32_t stagesurf_height = gs_stagesurface_get_height(stagesurface);
+
+		if (stagesurf_width != width || stagesurf_height != height)
+		{
+			gs_stagesurface_destroy(stagesurface);
+			stagesurface = nullptr;
+		}
+	}
+
+	if (!stagesurface)
+		stagesurface = gs_stagesurface_create(width, height, GS_BGRA);
+
+	gs_stage_texture(stagesurface, gs_texrender_get_texture(texrender));
+
+	uint8_t* video_data;
+	uint32_t linesize;
+
+	if (!gs_stagesurface_map(stagesurface, &video_data, &linesize))
+		return false;
+
+	outputBGRA = cv::Mat(height, width, CV_8UC4, video_data, linesize);
+
+	gs_stagesurface_unmap(stagesurface);
 	return true;
 }
