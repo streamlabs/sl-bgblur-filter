@@ -50,20 +50,6 @@ void* BgBlur::obs_create(obs_data_t* settings, obs_source_t* source)
 }
 
 /*static*/
-void BgBlur::obs_video_tick(void* data, float seconds)
-{
-	UNUSED_PARAMETER(seconds);
-	BgBlurData *blurData = (BgBlurData *)data;
-	
-	/***
-	* Build mask
-	*/
-
-	auto onnxInstance = Onnx::instance().get(blurData->source);
-	onnxInstance->update(blurData->source, blurData->texrender, blurData->stagesurface, OnnxModel::CATEGORY_BACKGROUND_INVERSE);
-}
-
-/*static*/
 void BgBlur::obs_destroy(void *data)
 {
 	blog(LOG_INFO, "BgBlur::destroy");
@@ -88,6 +74,13 @@ void BgBlur::obs_destroy(void *data)
 }
 
 /*static*/
+void BgBlur::obs_video_tick(void *data, float seconds)
+{
+	UNUSED_PARAMETER(seconds);
+	BgBlurData *blurData = (BgBlurData *)data;
+}
+
+/*static*/
 void BgBlur::obs_video_render(void* data, gs_effect_t* _effect)
 {
 	UNUSED_PARAMETER(_effect);
@@ -97,10 +90,16 @@ void BgBlur::obs_video_render(void* data, gs_effect_t* _effect)
 		return;
 
 	/***
-	* Rendering
+	* Build mask
 	*/
 
 	auto onnxInstance = Onnx::instance().get(blurData->source);
+	onnxInstance->update(blurData->source, blurData->texrender, blurData->stagesurface, OnnxModel::CATEGORY_BACKGROUND_INVERSE);
+
+	/***
+	* Rendering
+	*/
+
 	auto &backgroundMask = onnxInstance->m_lastFullMask[OnnxModel::CATEGORY_BACKGROUND_INVERSE];
 
 	gs_texture_t* alphaTexture = gs_texture_create(backgroundMask.cols, backgroundMask.rows, GS_R8, 1, (const uint8_t**)&backgroundMask.data, 0);
@@ -135,7 +134,6 @@ void BgBlur::obs_video_render(void* data, gs_effect_t* _effect)
 void BgBlur::obs_defaults(obs_data_t* settings)
 {
 	obs_data_set_default_int(settings, "blur_background", 10);
-	obs_data_set_default_double(settings, "smooth_contour", 1.0);
 	obs_data_set_default_double(settings, "temporal_smooth_factor", 0.5);
 }
 

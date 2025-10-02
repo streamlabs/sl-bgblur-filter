@@ -31,9 +31,9 @@ target_link_options(sl-bgblur-filter PRIVATE "/IGNORE:4099")
 target_sources(sl-bgblur-filter PRIVATE
     "${_this_dir}/sl-bgblur-filter.cpp"
     "${_this_dir}/BgBlur.cpp"
-    "${_this_dir}/BgBlurGraphics.cpp"
     "${_this_dir}/OnnxModel.cpp"
     "${_this_dir}/OnnxInstance.cpp"
+    "${_this_dir}/ModifyAppearence.cpp"
 )
 
 add_custom_command(TARGET sl-bgblur-filter POST_BUILD
