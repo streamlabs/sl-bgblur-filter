@@ -63,8 +63,8 @@ void BgBlur::obs_destroy(void *data)
 	if (blurData->stagesurface)
 		gs_stagesurface_destroy(blurData->stagesurface);
 
-	gs_effect_destroy(onnxInstance->m_maskEffect);
-	gs_effect_destroy(onnxInstance->m_kawaseBlurEffect);
+	gs_effect_destroy(blurData->maskEffect);
+	gs_effect_destroy(blurData->kawaseBlurEffect);
 
 	obs_leave_graphics();
 
@@ -77,7 +77,7 @@ void BgBlur::obs_destroy(void *data)
 void BgBlur::obs_video_tick(void *data, float seconds)
 {
 	UNUSED_PARAMETER(seconds);
-	BgBlurData *blurData = (BgBlurData *)data;
+	BgBlurData* blurData = (BgBlurData*)data;
 }
 
 /*static*/
@@ -94,16 +94,22 @@ void BgBlur::obs_video_render(void* data, gs_effect_t* _effect)
 	*/
 
 	auto onnxInstance = Onnx::instance().get(blurData->source);
-	onnxInstance->update(blurData->source, blurData->texrender, blurData->stagesurface, OnnxModel::CATEGORY_BACKGROUND_INVERSE);
+	onnxInstance->update(blurData->source, blurData->texrender, blurData->stagesurface, { OnnxModel::CATEGORY_BACKGROUND_INVERSE });
 
 	/***
 	* Rendering
 	*/
 
-	auto &backgroundMask = onnxInstance->m_lastFullMask[OnnxModel::CATEGORY_BACKGROUND_INVERSE];
+	cv::Mat& backgroundMask = onnxInstance->m_lastFullMask[OnnxModel::CATEGORY_BACKGROUND_INVERSE];
+
+	if (backgroundMask.empty())
+	{
+		obs_source_skip_video_filter(blurData->source);
+		return;
+	}
 
 	gs_texture_t* alphaTexture = gs_texture_create(backgroundMask.cols, backgroundMask.rows, GS_R8, 1, (const uint8_t**)&backgroundMask.data, 0);
-	gs_texture_t* blurredTexture = blurBackground(blurData->texrender, onnxInstance->m_kawaseBlurEffect, blurData->blurBackground,
+	gs_texture_t* blurredTexture = blurBackground(blurData->texrender, blurData->kawaseBlurEffect, blurData->blurBackground,
 		onnxInstance->m_maskWidth, onnxInstance->m_maskHeight, alphaTexture);
 
 	if (!obs_source_process_filter_begin(blurData->source, GS_RGBA, OBS_ALLOW_DIRECT_RENDERING))
@@ -113,8 +119,8 @@ void BgBlur::obs_video_render(void* data, gs_effect_t* _effect)
 		return;
 	}
 
-	gs_eparam_t *alphamask = gs_effect_get_param_by_name(onnxInstance->m_maskEffect, "alphamask");
-	gs_eparam_t *blurredBackground = gs_effect_get_param_by_name(onnxInstance->m_maskEffect, "blurredBackground");
+	gs_eparam_t* alphamask = gs_effect_get_param_by_name(blurData->maskEffect, "alphamask");
+	gs_eparam_t* blurredBackground = gs_effect_get_param_by_name(blurData->maskEffect, "blurredBackground");
 	gs_effect_set_texture(alphamask, alphaTexture);
 
 	if (blurData->blurBackground > 0)
@@ -123,7 +129,7 @@ void BgBlur::obs_video_render(void* data, gs_effect_t* _effect)
 	gs_blend_state_push();
 	gs_reset_blend_state();
 
-	obs_source_process_filter_tech_end(blurData->source, onnxInstance->m_maskEffect, 0, 0, blurData->blurBackground > 0 ? "DrawWithBlur" : "DrawWithoutBlur");
+	obs_source_process_filter_tech_end(blurData->source, blurData->maskEffect, 0, 0, blurData->blurBackground > 0 ? "DrawWithBlur" : "DrawWithoutBlur");
 
 	gs_blend_state_pop();
 	gs_texture_destroy(alphaTexture);
@@ -160,11 +166,11 @@ void BgBlur::obs_update_settings(void* data, obs_data_t* settings)
 
 	obs_enter_graphics();
 
-	gs_effect_destroy(onnxInstance->m_maskEffect);
-	onnxInstance->m_maskEffect = gs_effect_create_from_file((std::filesystem::path(obs_get_module_binary_path(obs_current_module())).parent_path() / MASK_EFFECT_PATH).string().c_str(), NULL);
+	gs_effect_destroy(blurData->maskEffect);
+	blurData->maskEffect = gs_effect_create_from_file((std::filesystem::path(obs_get_module_binary_path(obs_current_module())).parent_path() / MASK_EFFECT_PATH).string().c_str(), NULL);
 
-	gs_effect_destroy(onnxInstance->m_kawaseBlurEffect);
-	onnxInstance->m_kawaseBlurEffect = gs_effect_create_from_file((std::filesystem::path(obs_get_module_binary_path(obs_current_module())).parent_path() / KAWASE_BLUR_EFFECT_PATH).string().c_str(), NULL);
+	gs_effect_destroy(blurData->kawaseBlurEffect);
+	blurData->kawaseBlurEffect = gs_effect_create_from_file((std::filesystem::path(obs_get_module_binary_path(obs_current_module())).parent_path() / KAWASE_BLUR_EFFECT_PATH).string().c_str(), NULL);
 
 	obs_leave_graphics();
 }

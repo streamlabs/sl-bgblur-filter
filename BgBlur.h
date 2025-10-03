@@ -44,6 +44,8 @@ private:
 		obs_source_t* source = nullptr;
 		gs_texrender_t* texrender = nullptr;
 		gs_stagesurf_t* stagesurface = nullptr;
+		gs_effect_t* maskEffect = nullptr;
+		gs_effect_t* kawaseBlurEffect = nullptr;
 		uint32_t blurBackground = 10;
 	};
 };
