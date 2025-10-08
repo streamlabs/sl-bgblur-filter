@@ -9,6 +9,9 @@
 #include <windows.h>
 #include <algorithm>
 
+#include <obs-module.h>
+#include <graphics/matrix4.h>
+
 ModifyAppearence::ModifyAppearence()
 {
 
@@ -226,41 +229,33 @@ void ModifyAppearence::add_category_controls(obs_properties_t* props, const char
 /*static*/
 void ModifyAppearence::read_cat(obs_data_t* s, const char* suf, CategorySettings& out)
 {
-	const double gamma = (float)obs_data_get_double(s, (std::string("gamma_") + suf).c_str());
-	const double contrast = (float)obs_data_get_double(s, (std::string("contrast_") + suf).c_str());
-	const double brightness = (float)obs_data_get_double(s, (std::string("brightness_") + suf).c_str());
-	const double saturation = (float)obs_data_get_double(s, (std::string("saturation_") + suf).c_str());
-	const double hue_shift = (float)obs_data_get_double(s, (std::string("hue_shift_") + suf).c_str());
-	const double smooth = (float)obs_data_get_double(s, (std::string("smooth_") + suf).c_str());
+	float gamma = obs_data_get_double(s, (std::string("gamma_") + suf).c_str());
+	float contrast = obs_data_get_double(s, (std::string("contrast_") + suf).c_str());
+	float brightness = obs_data_get_double(s, (std::string("brightness_") + suf).c_str());
+	float saturation = obs_data_get_double(s, (std::string("saturation_") + suf).c_str());
+	float hue_shift = obs_data_get_double(s, (std::string("hue_shift_") + suf).c_str());
+	float smooth = obs_data_get_double(s, (std::string("smooth_") + suf).c_str());
 
-	/*
-	
-	// Gamma
-	double gamma = obs_data_get_double(settings, SETTING_GAMMA);
 	gamma = (gamma < 0.0) ? (-gamma + 1.0) : (1.0 / (gamma + 1.0));
-	filter->gamma = (float)gamma;
-
-	// Build our contrast number.
-	float contrast = (float)obs_data_get_double(settings, SETTING_CONTRAST);
 	contrast = (contrast < 0.0f) ? (1.0f / (-contrast + 1.0f)) : (contrast + 1.0f);
+	out.gamma = gamma;
 
 	// Now let's build our Contrast matrix.
-	filter->con_matrix = (struct matrix4){contrast, 0.0f, 0.0f, 0.0f, 0.0f, contrast, 0.0f, 0.0f, 0.0f, 0.0f, contrast, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f};
+	out.con_matrix = {contrast, 0.0f, 0.0f, 0.0f, 0.0f, contrast, 0.0f, 0.0f, 0.0f, 0.0f, contrast, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f};
 
-	// Build our brightness number.
-	float brightness = (float)obs_data_get_double(settings, SETTING_BRIGHTNESS);
+	// Now let's build our Brightness matrix.
+	// Earlier (in the function color_correction_filter_create) we set
+	// this matrix to the identity matrix, so now we only need
+	// to set the 3 variables that have changed.
 
-	//Now let's build our Brightness matrix.
-	//Earlier (in the function color_correction_filter_create) we set
-	//this matrix to the identity matrix, so now we only need
-	//to set the 3 variables that have changed.
+	out.bright_matrix.t.x = brightness;
+	out.bright_matrix.t.y = brightness;
+	out.bright_matrix.t.z = brightness;
 
-	filter->bright_matrix.t.x = brightness;
-	filter->bright_matrix.t.y = brightness;
-	filter->bright_matrix.t.z = brightness;
-
-	// Build our Saturation number.
-	float saturation = (float)obs_data_get_double(settings, SETTING_SATURATION) + 1.0f;
+	static const float root3 = 0.57735f;
+	static const float red_weight = 0.299f;
+	static const float green_weight = 0.587f;
+	static const float blue_weight = 0.114f;
 
 	// Factor in the selected color weights.
 	float one_minus_sat_red = (1.0f - saturation) * red_weight;
@@ -271,13 +266,7 @@ void ModifyAppearence::read_cat(obs_data_t* s, const char* suf, CategorySettings
 	float sat_val_blue = one_minus_sat_blue + saturation;
 
 	// Now we build our Saturation matrix.
-	filter->sat_matrix = (struct matrix4){sat_val_red, one_minus_sat_red, one_minus_sat_red, 0.0f, one_minus_sat_green, sat_val_green, one_minus_sat_green, 0.0f, one_minus_sat_blue, one_minus_sat_blue, sat_val_blue, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f};
-
-	// Build our Hue number.
-	float hue_shift = (float)obs_data_get_double(settings, SETTING_HUESHIFT);
-
-	// Build our Transparency number.
-	float opacity = (float)obs_data_get_double(settings, SETTING_OPACITY);
+	out.sat_matrix = {sat_val_red, one_minus_sat_red, one_minus_sat_red, 0.0f, one_minus_sat_green, sat_val_green, one_minus_sat_green, 0.0f, one_minus_sat_blue, one_minus_sat_blue, sat_val_blue, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f};
 
 	// Hue is the radian of 0 to 360 degrees.
 	float half_angle = 0.5f * (float)(hue_shift / (180.0f / M_PI));
@@ -297,40 +286,23 @@ void ModifyAppearence::read_cat(obs_data_t* s, const char* suf, CategorySettings
 
 	vec3_mulf(&square, &square, 2.0f);
 	struct vec3 diag;
-	vec3_sub(&diag, &filter->half_unit, &square);
+	vec3_sub(&diag, &out.half_unit, &square);
 	struct vec3 a_line;
 	vec3_add(&a_line, &cross, &wimag);
 	struct vec3 b_line;
 	vec3_sub(&b_line, &cross, &wimag);
 
 	// Now we build our Hue and Opacity matrix.
-	filter->hue_op_matrix = (struct matrix4){diag.x * 2.0f,
-						 b_line.z * 2.0f,
-						 a_line.y * 2.0f,
-						 0.0f,
-
-						 a_line.z * 2.0f,
-						 diag.y * 2.0f,
-						 b_line.x * 2.0f,
-						 0.0f,
-
-						 b_line.y * 2.0f,
-						 a_line.x * 2.0f,
-						 diag.z * 2.0f,
-						 0.0f,
-
-						 0.0f,
-						 0.0f,
-						 0.0f,
-						 opacity};
+	static const float opacity = 1.f;
+	out.hue_op_matrix = {diag.x * 2.0f, b_line.z * 2.0f, a_line.y * 2.0f, 0.0f, a_line.z * 2.0f, diag.y * 2.0f, b_line.x * 2.0f, 0.0f, b_line.y * 2.0f, a_line.x * 2.0f, diag.z * 2.0f, 0.0f, 0.0f, 0.0f, 0.0f, opacity};
 
 	// Now get the overlay color multiply data.
-	uint32_t color_multiply = (uint32_t)obs_data_get_int(settings, SETTING_COLOR_MULTIPLY);
+	static const uint32_t color_multiply = 0x00FFFFFF;
 	struct vec4 color_multiply_v4;
 	vec4_from_rgba_srgb(&color_multiply_v4, color_multiply);
 
 	// Now get the overlay color add data.
-	uint32_t color_add = (uint32_t)obs_data_get_int(settings, SETTING_COLOR_ADD);
+	static const uint32_t color_add = (uint32_t)0x00000000;
 	struct vec4 color_add_v4;
 	vec4_from_rgba_srgb(&color_add_v4, color_add);
 
@@ -338,26 +310,23 @@ void ModifyAppearence::read_cat(obs_data_t* s, const char* suf, CategorySettings
 	// Earlier (in the function color_correction_filter_create) we set
 	// this matrix to the identity matrix, so now we only need
 	// to set the 6 variables that have changed.
-	filter->color_matrix.x.x = color_multiply_v4.x;
-	filter->color_matrix.y.y = color_multiply_v4.y;
-	filter->color_matrix.z.z = color_multiply_v4.z;
+	out.color_matrix.x.x = color_multiply_v4.x;
+	out.color_matrix.y.y = color_multiply_v4.y;
+	out.color_matrix.z.z = color_multiply_v4.z;
 
-	filter->color_matrix.t.x = color_add_v4.x;
-	filter->color_matrix.t.y = color_add_v4.y;
-	filter->color_matrix.t.z = color_add_v4.z;
+	out.color_matrix.t.x = color_add_v4.x;
+	out.color_matrix.t.y = color_add_v4.y;
+	out.color_matrix.t.z = color_add_v4.z;
 
 	// First we apply the Contrast & Brightness matrix.
-	matrix4_mul(&filter->final_matrix, &filter->con_matrix, &filter->bright_matrix);
+	matrix4_mul(&out.final_matrix, &out.con_matrix, &out.bright_matrix);
 
 	// Now we apply the Saturation matrix.
-	matrix4_mul(&filter->final_matrix, &filter->final_matrix, &filter->sat_matrix);
+	matrix4_mul(&out.final_matrix, &out.final_matrix, &out.sat_matrix);
 
 	// Next we apply the Hue+Opacity matrix.
-	matrix4_mul(&filter->final_matrix, &filter->final_matrix, &filter->hue_op_matrix);
+	matrix4_mul(&out.final_matrix, &out.final_matrix, &out.hue_op_matrix);
 
 	// Lastly we apply the Color Wash matrix.
-	matrix4_mul(&filter->final_matrix, &filter->final_matrix, &filter->color_matrix);
-
-
-	*/
+	matrix4_mul(&out.final_matrix, &out.final_matrix, &out.color_matrix);
 }

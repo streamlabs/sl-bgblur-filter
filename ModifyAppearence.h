@@ -6,6 +6,7 @@
 
 #include <obs.h>
 #include <obs-module.h>
+#include <graphics/matrix4.h>
 #include <opencv2/core/types.hpp>
 
 #include "OnnxModel.h"
@@ -39,23 +40,7 @@ private:
 	~ModifyAppearence();
 
 	struct CategorySettings
-	{
-		// Immitating OBS color correction 
-		struct matrix4
-		{
-			struct vec4 {
-				union {
-					struct {
-						float x, y, z, w;
-					};
-					float ptr[4];
-					__m128 m;
-				};
-			};
-
-			struct vec4 x, y, z, t;
-		};
-		
+	{		
 		gs_eparam_t* gamma_param = nullptr;
 		gs_eparam_t* final_matrix_param = nullptr;
 
