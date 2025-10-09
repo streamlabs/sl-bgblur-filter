@@ -1,0 +1,86 @@
+// mask_color_correction.effect
+// Applies color correction only where alphamask > 0, leaves background untouched.
+// Technique name kept as DrawWithoutBlur for drop-in compatibility.
+
+uniform float4x4 ViewProj;
+
+texture2d image < string name = "image"; >;
+sampler_state texSampler {
+    Filter    = Linear;
+    AddressU  = Clamp;
+    AddressV  = Clamp;
+};
+
+texture2d alphamask < string name = "alphamask"; >;
+sampler_state maskSampler {
+    Filter    = Linear;   // use Point if you prefer a hard mask edge
+    AddressU  = Clamp;
+    AddressV  = Clamp;
+};
+
+// Matches OBS color_correction_filter params.
+// If you already compute gamma on CPU (as in your code), pass that here.
+// Defaults are no-op so this file is safe before params are wired up.
+uniform float3  gamma         = float3(1.0, 1.0, 1.0);
+uniform float4x4 color_matrix = {
+    1,0,0,0,
+    0,1,0,0,
+    0,0,1,0,
+    0,0,0,1
+};
+
+// Optional controls (you can ignore; defaults are fine)
+uniform float   mask_threshold = 0.0;   // clip very low alphas if desired
+uniform float   mask_opacity   = 1.0;   // globally scale the effect strength
+
+struct VertData {
+    float4 pos : POSITION;
+    float2 uv  : TEXCOORD0;
+};
+
+VertData VSDefault(VertData v)
+{
+    v.pos = mul(v.pos, ViewProj);
+    return v;
+}
+
+float3 apply_color(float3 rgb)
+{
+    // Apply 4x4 color matrix (contrast/brightness/sat/hue/color wash already composed on CPU)
+    float4 cr = mul(float4(rgb, 1.0), color_matrix);
+    float3 out_rgb = cr.rgb;
+
+    // Apply gamma (already prepared as final shader-space gamma in your CPU code)
+    out_rgb = pow(max(out_rgb, 0.0), gamma);
+
+    return out_rgb;
+}
+
+float4 PSMain(VertData v) : TARGET
+{
+    float4 src = image.Sample(texSampler, v.uv);
+    float  m   = alphamask.Sample(maskSampler, v.uv).r;
+
+    // Optional cleanup: threshold very small mask values
+    m = (m <= mask_threshold) ? 0.0 : m;
+
+    // Scale mask if you want to fade effect strength
+    m *= saturate(mask_opacity);
+
+    // Compute corrected color
+    float3 corrected = apply_color(src.rgb);
+
+    // Apply only on foreground (non-background) pixels via mask
+    float3 out_rgb = lerp(src.rgb, corrected, saturate(m));
+
+    return float4(out_rgb, src.a);
+}
+
+technique DrawWithColorChange
+{
+    pass
+    {
+        vertex_shader = VSDefault(v);
+        pixel_shader  = PSMain(v);
+    }
+}

@@ -43,6 +43,7 @@ void* ModifyAppearence::obs_create(obs_data_t* settings, obs_source_t* source)
 	ModData* data = new ModData;
 	data->source = source;
 	data->texrender = gs_texrender_create(GS_BGRA, GS_ZS_NONE);
+
 	Onnx::instance().registerIncrementSource(source);
 
 	auto onnxInstance = Onnx::instance().get(source);
@@ -66,7 +67,8 @@ void ModifyAppearence::obs_destroy(void* data)
 	if (modData->stagesurface)
 		gs_stagesurface_destroy(modData->stagesurface);
 
-	gs_effect_destroy(modData->maskEffect);
+	for (auto &itr : modData->cat)
+		gs_effect_destroy(itr.maskEffect);
 
 	obs_leave_graphics();
 
@@ -115,13 +117,6 @@ void ModifyAppearence::obs_update_settings(void* data, obs_data_t* settings)
 {
 	ModData* modData = (ModData* )data;
 
-	obs_enter_graphics();
-
-	gs_effect_destroy(modData->maskEffect);
-	modData->maskEffect = gs_effect_create_from_file((std::filesystem::path(obs_get_module_binary_path(obs_current_module())).parent_path() / MASK_EFFECT_PATH).string().c_str(), NULL);
-
-	obs_leave_graphics();
-
 	read_cat(settings, "hair", modData->cat[OnnxModel::CATEGORY_HAIR]);
 	read_cat(settings, "body_skin", modData->cat[OnnxModel::CATEGORY_BODY_SKIN]);
 	read_cat(settings, "face_skin", modData->cat[OnnxModel::CATEGORY_FACE_SKIN]);
@@ -149,42 +144,40 @@ void ModifyAppearence::obs_video_tick(void* data, float seconds)
 	ModData* modData = (ModData* )data;
 }
 
-/*static*/
-void ModifyAppearence::obs_video_render(void* data, gs_effect_t* _effect)
+void ModifyAppearence::obs_video_render(void *data, gs_effect_t *_effect)
 {
 	UNUSED_PARAMETER(_effect);
-	ModData* modData = (ModData* )data;
+	ModData *modData = (ModData *)data;
 
 	if (!obs_source_enabled(modData->source))
 		return;
 
-	if (!obs_source_process_filter_begin(modData->source, GS_RGBA, OBS_ALLOW_DIRECT_RENDERING))
-		return;
-
-	gs_blend_state_push();
-	gs_reset_blend_state();
-
 	auto onnxInstance = Onnx::instance().get(modData->source);
 	onnxInstance->update(modData->source, modData->texrender, modData->stagesurface, ModifyAppearence::instance().m_cats);
 
-	for (auto &cat : ModifyAppearence::instance().m_cats)
+	obs_source_video_render(obs_filter_get_target(modData->source));
+
+
+	// Begin the OBS filter render ONCE
+	if (!obs_source_process_filter_begin(modData->source, GS_RGBA, OBS_ALLOW_DIRECT_RENDERING))
+		return;
+
+	for (auto& cat : ModifyAppearence::instance().m_cats)
 	{
+		gs_blend_state_push();
+		gs_reset_blend_state();
+
 		cv::Mat &cvMask = onnxInstance->m_lastFullMask[cat];
-		if (cvMask.empty())
-			continue;
+		gs_texture_t *alphaTexture = gs_texture_create(cvMask.cols, cvMask.rows, GS_R8, 1, (const uint8_t **)&cvMask.data, 0);
 
-		gs_texture_t* alphaTexture = gs_texture_create(cvMask.cols, cvMask.rows, GS_R8, 1, (const uint8_t **)&cvMask.data, 0);
-
-		gs_eparam_t* alphamask = gs_effect_get_param_by_name(modData->maskEffect, "alphamask");
-		gs_effect_set_texture(alphamask, alphaTexture);
-
-		obs_source_process_filter_tech_end(modData->source, modData->maskEffect, 0, 0, "DrawWithoutBlur");
+		gs_effect_set_texture(gs_effect_get_param_by_name(modData->cat[cat].maskEffect, "alphamask"), alphaTexture);
+		obs_source_process_filter_tech_end(modData->source, modData->cat[cat].maskEffect, 0, 0, "DrawWithoutBlur");
 
 		gs_texture_destroy(alphaTexture);
-	}
 
-	gs_blend_state_pop();
-	obs_source_process_filter_end(modData->source, modData->maskEffect, 0, 0);
+		gs_blend_state_pop();
+		obs_source_process_filter_end(modData->source, modData->cat[cat].maskEffect, 0, 0);
+	}
 }
 
 /*static*/
@@ -229,18 +222,26 @@ void ModifyAppearence::add_category_controls(obs_properties_t* props, const char
 /*static*/
 void ModifyAppearence::read_cat(obs_data_t* s, const char* suf, CategorySettings& out)
 {
-	float gamma = obs_data_get_double(s, (std::string("gamma_") + suf).c_str());
-	float contrast = obs_data_get_double(s, (std::string("contrast_") + suf).c_str());
-	float brightness = obs_data_get_double(s, (std::string("brightness_") + suf).c_str());
-	float saturation = obs_data_get_double(s, (std::string("saturation_") + suf).c_str());
-	float hue_shift = obs_data_get_double(s, (std::string("hue_shift_") + suf).c_str());
-	float smooth = obs_data_get_double(s, (std::string("smooth_") + suf).c_str());
+	obs_enter_graphics();
+	gs_effect_destroy(out.maskEffect);
+	out.maskEffect = gs_effect_create_from_file((std::filesystem::path(obs_get_module_binary_path(obs_current_module())).parent_path() / "mask_color_correction.effect").string().c_str(), NULL);
+	printf("modData->maskEffect = %d\n", (int)(uint64_t)out.maskEffect);
+	obs_leave_graphics();
 
-	gamma = (gamma < 0.0) ? (-gamma + 1.0) : (1.0 / (gamma + 1.0));
+	// Implementation derived from obs color-correction-filter
+	//
+
+	float gamma = (float)obs_data_get_double(s, (std::string("gamma_") + suf).c_str());
+	float contrast = (float)obs_data_get_double(s, (std::string("contrast_") + suf).c_str());
+	float brightness = (float)obs_data_get_double(s, (std::string("brightness_") + suf).c_str());
+	float saturation = (float)obs_data_get_double(s, (std::string("saturation_") + suf).c_str());
+	float hue_shift = (float)obs_data_get_double(s, (std::string("hue_shift_") + suf).c_str());
+	float smooth = (float)obs_data_get_double(s, (std::string("smooth_") + suf).c_str());
+
+	gamma = (gamma < 0.0) ? (-gamma + 1.0f) : (1.0f / (gamma + 1.0f));
 	contrast = (contrast < 0.0f) ? (1.0f / (-contrast + 1.0f)) : (contrast + 1.0f);
-	out.gamma = gamma;
 
-	// Now let's build our Contrast matrix.
+	out.gamma = gamma;
 	out.con_matrix = {contrast, 0.0f, 0.0f, 0.0f, 0.0f, contrast, 0.0f, 0.0f, 0.0f, 0.0f, contrast, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f};
 
 	// Now let's build our Brightness matrix.

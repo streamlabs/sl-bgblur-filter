@@ -42,6 +42,7 @@ add_custom_command(TARGET sl-bgblur-filter POST_BUILD
         "${_this_dir}/bgblurdata/SelfieMulticlass.onnx"
         "${_this_dir}/bgblurdata/mask_alpha_filter.effect"
         "${_this_dir}/bgblurdata/kawase_blur.effect"
+        "${_this_dir}/bgblurdata/mask_color_correction.effect"
         $<TARGET_FILE_DIR:sl-bgblur-filter>
 )
 

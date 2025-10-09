@@ -58,24 +58,6 @@ float4 PSAlphaMaskRGBAWithoutBlur(VertDataOut v_in) : TARGET
 	return outputRGBA;
 }
 
-technique DrawWithBlur
-{
-	pass
-	{
-		vertex_shader = VSDefault(v_in);
-		pixel_shader  = PSTakeBlur(v_in);
-	}
-}
-
-technique DrawWithFocalBlur
-{
-	pass
-	{
-		vertex_shader = VSDefault(v_in);
-		pixel_shader  = PSTakeBlur(v_in);
-	}
-}
-
 technique DrawWithoutBlur
 {
 	pass

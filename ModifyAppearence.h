@@ -54,6 +54,8 @@ private:
 		struct matrix4 final_matrix;
 
 		struct vec3 half_unit;
+
+		gs_effect_t* maskEffect = nullptr;
 	};
 
 	struct ModData
@@ -63,7 +65,6 @@ private:
 
 		gs_texrender_t* texrender = nullptr;
 		gs_stagesurf_t* stagesurface = nullptr;
-		gs_effect_t* maskEffect = nullptr;
 
 		CategorySettings cat[OnnxModel::Category::CATEGORY_NUM_CAT];
 
