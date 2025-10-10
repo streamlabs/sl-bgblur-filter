@@ -41,19 +41,11 @@ private:
 
 	struct CategorySettings
 	{		
-		gs_eparam_t* gamma_param = nullptr;
-		gs_eparam_t* final_matrix_param = nullptr;
-
 		float gamma = 0.f;
-
-		struct matrix4 con_matrix;
-		struct matrix4 bright_matrix;
-		struct matrix4 sat_matrix;
-		struct matrix4 hue_op_matrix;
-		struct matrix4 color_matrix;
-		struct matrix4 final_matrix;
-
-		struct vec3 half_unit;
+		float contrast = 0.f;
+		float brightness = 0.f;
+		float saturation = 0.f;
+		float smooth = 0.f;
 
 		gs_effect_t* maskEffect = nullptr;
 	};
@@ -76,5 +68,5 @@ private:
 	static void add_category_controls(obs_properties_t* props, const char* group_name, const char* group_label, const char* suffix);
 	static void read_cat(obs_data_t* s, const char* suf, CategorySettings& out);
 
-	std::vector<OnnxModel::Category> m_cats = { OnnxModel::CATEGORY_HAIR, OnnxModel::CATEGORY_BODY_SKIN, OnnxModel::CATEGORY_FACE_SKIN };
+	std::vector<OnnxModel::Category> m_cats = {OnnxModel::CATEGORY_HAIR, OnnxModel::CATEGORY_BODY_SKIN, OnnxModel::CATEGORY_FACE_SKIN, OnnxModel::CATEGORY_CLOTHES };
 };
