@@ -236,8 +236,8 @@ void ModifyAppearence::add_category_controls(obs_properties_t* props, const char
 	// Key format: <setting>_<suffix> 
 	obs_properties_add_float_slider(grp, (std::string("smooth_") + suffix).c_str(), "Smoothing", 0.0, 100.0, 1.0);  
 	obs_properties_add_float_slider(grp, (std::string("gamma_") + suffix).c_str(), "Gamma", 0.0, 0.5, 0.01);                  
-	obs_properties_add_float_slider(grp, (std::string("contrast_") + suffix).c_str(), "Contrast", 0.0, 3.0, 0.01);            
-	obs_properties_add_float_slider(grp, (std::string("saturation_") + suffix).c_str(), "Saturation", 0.00, 3.0, 0.01);       
+	obs_properties_add_float_slider(grp, (std::string("contrast_") + suffix).c_str(), "Contrast", 0.0, 1.0, 0.01);            
+	obs_properties_add_float_slider(grp, (std::string("saturation_") + suffix).c_str(), "Saturation", 0.00, 1.0, 0.01);       
 }
 
 /*static*/

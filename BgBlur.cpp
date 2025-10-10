@@ -29,12 +29,6 @@ const char* BgBlur::obs_getname(void* unused)
 /*static*/
 void* BgBlur::obs_create(obs_data_t* settings, obs_source_t* source)
 {
-	//debug
-	AllocConsole();
-	freopen("conin$", "r", stdin);
-	freopen("conout$", "w", stdout);
-	freopen("conout$", "w", stderr);
-
 	blog(LOG_INFO, "BgBlur::create");
 
 	BgBlurData* data = new BgBlurData;
