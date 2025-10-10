@@ -4,10 +4,10 @@
 #include <obs-module.h>
 #include <obs-config.h>
 #include <util\platform.h>
-#include <opencv2/imgproc.hpp>
-#include <opencv2/imgcodecs.hpp>
 
 #include "BgBlur.h"
+#include "ModifyAppearence.h"
+#include "OnnxModel.h"
 
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE("sl-bgblur-filter", "en-US")
@@ -18,21 +18,39 @@ MODULE_EXPORT const char *obs_module_description(void)
 
 bool obs_module_load(void)
 {
-	struct obs_source_info sinfo = {};
-	sinfo.id = "sl-bgblur-filter";
-	sinfo.type = OBS_SOURCE_TYPE_FILTER;
-	sinfo.output_flags = OBS_SOURCE_VIDEO;
-	sinfo.get_name = BgBlur::obs_getname;
-	sinfo.create = BgBlur::obs_create;
-	sinfo.destroy = BgBlur::obs_destroy;
-	sinfo.get_defaults = BgBlur::obs_defaults;
-	sinfo.get_properties = BgBlur::obs_properties;
-	sinfo.update = BgBlur::obs_update_settings;
-	sinfo.activate = BgBlur::obs_activate;
-	sinfo.deactivate = BgBlur::obs_deactivate;
-	sinfo.video_tick = BgBlur::obs_video_tick;
-	sinfo.video_render = BgBlur::obs_video_render;	
-	obs_register_source(&sinfo);
+	// BgBlur
+	struct obs_source_info bgblur = {};
+	bgblur.id = "sl-bgblur-filter";
+	bgblur.type = OBS_SOURCE_TYPE_FILTER;
+	bgblur.output_flags = OBS_SOURCE_VIDEO;
+	bgblur.get_name = BgBlur::obs_getname;
+	bgblur.create = BgBlur::obs_create;
+	bgblur.destroy = BgBlur::obs_destroy;
+	bgblur.get_defaults = BgBlur::obs_defaults;
+	bgblur.get_properties = BgBlur::obs_properties;
+	bgblur.update = BgBlur::obs_update_settings;
+	bgblur.activate = BgBlur::obs_activate;
+	bgblur.deactivate = BgBlur::obs_deactivate;
+	bgblur.video_tick = BgBlur::obs_video_tick;
+	bgblur.video_render = BgBlur::obs_video_render;	
+	obs_register_source(&bgblur);
+
+	// ModifyAppearence
+	struct obs_source_info modapp = {};
+	modapp.id = "sl-modapp-filter";
+	modapp.type = OBS_SOURCE_TYPE_FILTER;
+	modapp.output_flags = OBS_SOURCE_VIDEO;
+	modapp.get_name = ModifyAppearence::obs_getname;
+	modapp.create = ModifyAppearence::obs_create;
+	modapp.destroy = ModifyAppearence::obs_destroy;
+	modapp.get_defaults = ModifyAppearence::obs_defaults;
+	modapp.get_properties = ModifyAppearence::obs_properties;
+	modapp.update = ModifyAppearence::obs_update_settings;
+	modapp.activate = ModifyAppearence::obs_activate;
+	modapp.deactivate = ModifyAppearence::obs_deactivate;
+	modapp.video_tick = ModifyAppearence::obs_video_tick;
+	modapp.video_render = ModifyAppearence::obs_video_render;
+	obs_register_source(&modapp);
 
 	return true;
 }
