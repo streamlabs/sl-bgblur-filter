@@ -148,9 +148,24 @@ void ModifyAppearence::obs_video_render(void *data, gs_effect_t *_effect)
 
 	obs_source_video_render(obs_filter_get_target(modData->source));
 
+	const enum gs_color_space preferred_spaces[] = {
+		GS_CS_SRGB,
+		GS_CS_SRGB_16F,
+		GS_CS_709_EXTENDED,
+	};
 
+	const enum gs_color_space source_space = obs_source_get_color_space(obs_filter_get_target(modData->source), OBS_COUNTOF(preferred_spaces), preferred_spaces);
+
+	if (source_space == GS_CS_709_EXTENDED)
+	{
+		obs_source_skip_video_filter(modData->source);
+		return;
+	}
+
+	const enum gs_color_format format = gs_get_format_from_space(source_space);
+	
 	// Begin the OBS filter render ONCE
-	if (!obs_source_process_filter_begin(modData->source, GS_RGBA, OBS_ALLOW_DIRECT_RENDERING))
+	if (!obs_source_process_filter_begin_with_color_space(modData->source, format, source_space, OBS_ALLOW_DIRECT_RENDERING))
 		return;
 
 	for (auto& cat : ModifyAppearence::instance().m_cats)
@@ -161,9 +176,6 @@ void ModifyAppearence::obs_video_render(void *data, gs_effect_t *_effect)
 		auto catData = modData->cat[cat];
 		cv::Mat cvMask = onnxInstance->m_lastFullMask[cat].clone();
 		gs_texture_t *alphaTexture = gs_texture_create(cvMask.cols, cvMask.rows, GS_R8, 1, (const uint8_t **)&cvMask.data, 0);
-
-		if (cat == OnnxModel::Category::CATEGORY_CLOTHES)
-			printf("clothing gamma = %f\n", catData.gamma);
 
 		auto effect = modData->cat[cat].maskEffect;
 		gs_effect_set_texture(gs_effect_get_param_by_name(effect, "alphamask"), alphaTexture);
@@ -256,4 +268,21 @@ void ModifyAppearence::read_cat(obs_data_t* s, const char* suf, CategorySettings
 
 	out.gamma = (gamma < 0.0) ? (-gamma + 1.0f) : (1.0f / (gamma + 1.0f));
 	out.contrast = (contrast < 0.0f) ? (1.0f / (-contrast + 1.0f)) : (contrast + 1.0f);
+}
+
+/*static*/
+gs_color_space ModifyAppearence::obs_video_get_color_space(void *data, size_t count, const enum gs_color_space *preferred_spaces)
+{
+	UNUSED_PARAMETER(count);
+	UNUSED_PARAMETER(preferred_spaces);
+
+	const enum gs_color_space potential_spaces[] = {
+		GS_CS_SRGB,
+		GS_CS_SRGB_16F,
+		GS_CS_709_EXTENDED,
+	};
+
+	ModData *modData = (ModData *)data;
+	const enum gs_color_space source_space = obs_source_get_color_space(obs_filter_get_target(modData->source), OBS_COUNTOF(potential_spaces), potential_spaces);
+	return source_space;
 }

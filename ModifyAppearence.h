@@ -29,6 +29,8 @@ public:
 	static void obs_video_tick(void* data, float seconds);
 	static void obs_video_render(void* data, gs_effect_t* _effect);
 
+	static gs_color_space obs_video_get_color_space(void *data, size_t count, const enum gs_color_space *preferred_spaces);
+
 	static void* obs_create(obs_data_t* settings, obs_source_t* source);
 
 	static const char* obs_getname(void* unused);

@@ -1,86 +1,121 @@
-// mask_color_correction.effect
-// Applies color correction only where alphamask > 0, leaves background untouched.
-// Technique name kept as DrawWithoutBlur for drop-in compatibility.
-
 uniform float4x4 ViewProj;
+uniform texture2d image;
+uniform texture2d alphamask;
+uniform float gamma;
+uniform float contrast;
+uniform float saturation;
+uniform float smooth;
 
-texture2d image < string name = "image"; >;
-sampler_state texSampler {
-    Filter    = Linear;
-    AddressU  = Clamp;
-    AddressV  = Clamp;
+sampler_state textureSampler {
+	Filter   = Linear;
+	AddressU = Clamp;
+	AddressV = Clamp;
 };
-
-texture2d alphamask < string name = "alphamask"; >;
-sampler_state maskSampler {
-    Filter    = Linear;   // use Point if you prefer a hard mask edge
-    AddressU  = Clamp;
-    AddressV  = Clamp;
-};
-
-// Matches OBS color_correction_filter params.
-// If you already compute gamma on CPU (as in your code), pass that here.
-// Defaults are no-op so this file is safe before params are wired up.
-uniform float3  gamma         = float3(1.0, 1.0, 1.0);
-uniform float4x4 color_matrix = {
-    1,0,0,0,
-    0,1,0,0,
-    0,0,1,0,
-    0,0,0,1
-};
-
-// Optional controls (you can ignore; defaults are fine)
-uniform float   mask_threshold = 0.0;   // clip very low alphas if desired
-uniform float   mask_opacity   = 1.0;   // globally scale the effect strength
 
 struct VertData {
-    float4 pos : POSITION;
-    float2 uv  : TEXCOORD0;
+	float4 pos : POSITION;
+	float2 uv : TEXCOORD0;
 };
 
-VertData VSDefault(VertData v)
+VertData VSDefault(VertData vert_in)
 {
-    v.pos = mul(v.pos, ViewProj);
-    return v;
+	VertData vert_out;
+	vert_out.pos = mul(float4(vert_in.pos.xyz, 1.0), ViewProj);
+	vert_out.uv = vert_in.uv;
+	return vert_out;
 }
 
-float3 apply_color(float3 rgb)
+float4 PSColorFilterRGBA(VertData vert_in) : TARGET
 {
-    // Apply 4x4 color matrix (contrast/brightness/sat/hue/color wash already composed on CPU)
-    float4 cr = mul(float4(rgb, 1.0), color_matrix);
-    float3 out_rgb = cr.rgb;
+	float4 inputRGBA = image.Sample(textureSampler, vert_in.uv);
+    inputRGBA.rgb = max(float3(0.0, 0.0, 0.0), inputRGBA.rgb / inputRGBA.a);
+	
+    float4 outputRGBA;
+    float a = (1.0 - alphamask.Sample(textureSampler, vert_in.uv).r) * inputRGBA.a;
+    outputRGBA.rgb = inputRGBA.rgb;
+	
+	if (a > 0)
+	{
+		if (smooth > 0.0)
+        {
+            // Get texel size for sampling
+            uint w, h;
+            image.GetDimensions(w, h);
+            float2 texel = 1.0 / float2(w, h);
 
-    // Apply gamma (already prepared as final shader-space gamma in your CPU code)
-    out_rgb = pow(max(out_rgb, 0.0), gamma);
+            float smoothAmt   = saturate(smooth);               // [0..1]
+            float sigmaSpace  = lerp(0.75, 2.0, smoothAmt);     // spatial radius (~pixels)
+            float sigmaRange  = lerp(0.05, 0.22, smoothAmt);    // luma tolerance (edge preservation)
+            const int radius  = 2;                              // 5x5 taps (good quality/price)
+            float twoSigS2    = 2.0 * sigmaSpace * sigmaSpace;
+            float twoSigR2    = 2.0 * sigmaRange * sigmaRange;
 
-    return out_rgb;
+            float3 center     = outputRGBA.rgb;
+            float centerLum   = dot(center, float3(0.299, 0.587, 0.114));
+
+            float3 acc = 0.0;
+            float  wsum = 0.0;
+
+            [unroll]
+            for (int j = -radius; j <= radius; ++j)
+            {
+                [unroll]
+                for (int i = -radius; i <= radius; ++i)
+                {
+                    float2 uvN = vert_in.uv + float2(i, j) * texel;
+
+                    // Neighbor sample (undo premult just like inputRGBA was)
+                    float4 nRGBA = image.Sample(textureSampler, uvN);
+                    float3 nRGB  = max(0.0.xxx, nRGBA.rgb / max(nRGBA.a, 1e-5));
+
+                    // Only smooth with neighbors that are also "skin" (a>0)
+                    float nAlpha = (1.0 - alphamask.Sample(textureSampler, uvN).r) * nRGBA.a;
+                    float skinW  = (nAlpha > 0.0) ? 1.0 : 0.0;
+
+                    // Bilateral weights: spatial + range (by luminance difference)
+                    float  nLum   = dot(nRGB, float3(0.299, 0.587, 0.114));
+                    float2 d      = float2(i, j);
+                    float  wSpace = exp(-dot(d, d) / twoSigS2);
+                    float  dLum   = nLum - centerLum;
+                    float  wRange = exp(-(dLum * dLum) / twoSigR2);
+
+                    float  w = wSpace * wRange * skinW;
+                    acc  += nRGB * w;
+                    wsum += w;
+                }
+            }
+
+            float3 blurred = (wsum > 0.0) ? (acc / wsum) : center;
+
+            // Preserve a touch of high-frequency detail so it doesn’t look plastic
+            float3 detail     = center - blurred;
+            float  detailKeep = lerp(0.75, 0.25, smoothAmt); // keep less detail as smoothing increases
+            float3 smoothRGB  = blurred + detail * detailKeep;
+
+            // Blend with original based on "smooth" strength
+            outputRGBA.rgb = saturate(lerp(center, smoothRGB, smoothAmt));
+        }
+		
+		// Gamma correction
+		outputRGBA.rgb = pow(outputRGBA.rgb, float3(gamma, gamma, gamma));
+
+		// Apply contrast
+		outputRGBA.rgb = ((outputRGBA.rgb - 0.5) * contrast + 0.5);
+		
+		// Convert to grayscale for saturation control
+		float luminance = dot(outputRGBA.rgb, float3(0.299, 0.587, 0.114));
+		outputRGBA.rgb = lerp(float3(luminance, luminance, luminance), outputRGBA.rgb, saturation);		
+	}
+
+    outputRGBA.a = a;
+	return outputRGBA;
 }
 
-float4 PSMain(VertData v) : TARGET
+technique DrawWithoutBlur
 {
-    float4 src = image.Sample(texSampler, v.uv);
-    float  m   = alphamask.Sample(maskSampler, v.uv).r;
-
-    // Optional cleanup: threshold very small mask values
-    m = (m <= mask_threshold) ? 0.0 : m;
-
-    // Scale mask if you want to fade effect strength
-    m *= saturate(mask_opacity);
-
-    // Compute corrected color
-    float3 corrected = apply_color(src.rgb);
-
-    // Apply only on foreground (non-background) pixels via mask
-    float3 out_rgb = lerp(src.rgb, corrected, saturate(m));
-
-    return float4(out_rgb, src.a);
-}
-
-technique DrawWithColorChange
-{
-    pass
-    {
-        vertex_shader = VSDefault(v);
-        pixel_shader  = PSMain(v);
-    }
+	pass
+	{
+		vertex_shader = VSDefault(vert_in);
+		pixel_shader = PSColorFilterRGBA(vert_in);
+	}
 }

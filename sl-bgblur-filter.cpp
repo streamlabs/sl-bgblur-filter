@@ -32,14 +32,14 @@ bool obs_module_load(void)
 	bgblur.activate = BgBlur::obs_activate;
 	bgblur.deactivate = BgBlur::obs_deactivate;
 	bgblur.video_tick = BgBlur::obs_video_tick;
-	bgblur.video_render = BgBlur::obs_video_render;	
+	bgblur.video_render = BgBlur::obs_video_render;
 	obs_register_source(&bgblur);
 
 	// ModifyAppearence
 	struct obs_source_info modapp = {};
 	modapp.id = "sl-modapp-filter";
 	modapp.type = OBS_SOURCE_TYPE_FILTER;
-	modapp.output_flags = OBS_SOURCE_VIDEO;
+	modapp.output_flags = OBS_SOURCE_VIDEO | OBS_SOURCE_SRGB;
 	modapp.get_name = ModifyAppearence::obs_getname;
 	modapp.create = ModifyAppearence::obs_create;
 	modapp.destroy = ModifyAppearence::obs_destroy;
@@ -50,6 +50,7 @@ bool obs_module_load(void)
 	modapp.deactivate = ModifyAppearence::obs_deactivate;
 	modapp.video_tick = ModifyAppearence::obs_video_tick;
 	modapp.video_render = ModifyAppearence::obs_video_render;
+	modapp.video_get_color_space = ModifyAppearence::obs_video_get_color_space;
 	obs_register_source(&modapp);
 
 	return true;
