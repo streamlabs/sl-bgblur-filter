@@ -196,8 +196,7 @@ bool OnnxInstance::getRGBAFromStageSurface(gs_texrender_t*& texrender, gs_stages
 	if (!gs_stagesurface_map(stagesurface, &video_data, &linesize))
 		return false;
 
-	outputBGRA = cv::Mat(height, width, CV_8UC4, video_data, linesize);
-
+	outputBGRA = cv::Mat(height, width, CV_8UC4, video_data, linesize).clone();
 	gs_stagesurface_unmap(stagesurface);
 	return true;
 }
