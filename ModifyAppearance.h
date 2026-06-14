@@ -12,12 +12,12 @@
 #include "OnnxModel.h"
 
 /*static*/
-class ModifyAppearence
+class ModifyAppearance
 {
 public:
-	static ModifyAppearence &instance()
+	static ModifyAppearance &instance()
 	{
-		static ModifyAppearence a;
+		static ModifyAppearance a;
 		return a;
 	}
 
@@ -38,8 +38,8 @@ public:
 	static obs_properties_t* obs_properties(void* data);
 
 private:
-	ModifyAppearence();
-	~ModifyAppearence();
+	ModifyAppearance();
+	~ModifyAppearance();
 
 	struct CategorySettings
 	{		

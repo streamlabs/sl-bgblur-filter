@@ -6,7 +6,7 @@
 #include <util\platform.h>
 
 #include "BgBlur.h"
-#include "ModifyAppearence.h"
+#include "ModifyAppearance.h"
 #include "OnnxModel.h"
 
 OBS_DECLARE_MODULE()
@@ -35,22 +35,22 @@ bool obs_module_load(void)
 	bgblur.video_render = BgBlur::obs_video_render;
 	obs_register_source(&bgblur);
 
-	// ModifyAppearence
+	// ModifyAppearance
 	struct obs_source_info modapp = {};
 	modapp.id = "sl-modapp-filter";
 	modapp.type = OBS_SOURCE_TYPE_FILTER;
 	modapp.output_flags = OBS_SOURCE_VIDEO | OBS_SOURCE_SRGB;
-	modapp.get_name = ModifyAppearence::obs_getname;
-	modapp.create = ModifyAppearence::obs_create;
-	modapp.destroy = ModifyAppearence::obs_destroy;
-	modapp.get_defaults = ModifyAppearence::obs_defaults;
-	modapp.get_properties = ModifyAppearence::obs_properties;
-	modapp.update = ModifyAppearence::obs_update_settings;
-	modapp.activate = ModifyAppearence::obs_activate;
-	modapp.deactivate = ModifyAppearence::obs_deactivate;
-	modapp.video_tick = ModifyAppearence::obs_video_tick;
-	modapp.video_render = ModifyAppearence::obs_video_render;
-	modapp.video_get_color_space = ModifyAppearence::obs_video_get_color_space;
+	modapp.get_name = ModifyAppearance::obs_getname;
+	modapp.create = ModifyAppearance::obs_create;
+	modapp.destroy = ModifyAppearance::obs_destroy;
+	modapp.get_defaults = ModifyAppearance::obs_defaults;
+	modapp.get_properties = ModifyAppearance::obs_properties;
+	modapp.update = ModifyAppearance::obs_update_settings;
+	modapp.activate = ModifyAppearance::obs_activate;
+	modapp.deactivate = ModifyAppearance::obs_deactivate;
+	modapp.video_tick = ModifyAppearance::obs_video_tick;
+	modapp.video_render = ModifyAppearance::obs_video_render;
+	modapp.video_get_color_space = ModifyAppearance::obs_video_get_color_space;
 	obs_register_source(&modapp);
 
 	return true;

@@ -130,7 +130,7 @@ bool OnnxModel::runImage(const cv::Mat &image, const int cv, std::map<Category, 
 	return true;
 }
 
-bool OnnxModel::runImageDisk(const std::string &imgPath)
+bool OnnxModel::runImageDisk(const std::string &imgPath, const std::string& out_imgPath)
 {
 	static std::vector<std::string> categories = {"background", "hair", "body-skin", "face-skin", "clothes", "others"};
 
@@ -141,7 +141,7 @@ bool OnnxModel::runImageDisk(const std::string &imgPath)
 
 	for (auto& itr : output)
 	{
-		std::string out_path = "C:\\Users\\srogers\\Desktop\\onxtest/" + categories[itr.first] + ".png";
+		std::string out_path = out_imgPath + categories[itr.first] + ".png";
 		cv::imwrite(out_path, itr.second);
 	}
 

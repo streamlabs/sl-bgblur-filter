@@ -31,8 +31,8 @@ public:
 
 	bool isGood() const { return m_session != nullptr; }
 
-	bool runImageDisk(const std::string &imgPath);
-	bool runImage(const cv::Mat &image, const int cv, std::map<Category, cv::Mat> &output);
+	bool runImageDisk(const std::string& imgPath, const std::string& out_imgPath);
+	bool runImage(const cv::Mat& image, const int cv, std::map<Category, cv::Mat>& output);
 
 private:
 	std::wstring getTempFilePath(const std::wstring &fileName);

@@ -1,4 +1,4 @@
-#include "ModifyAppearence.h"
+#include "ModifyAppearance.h"
 #include "OnnxModel.h"
 #include "OnnxInstance.h"
 
@@ -12,27 +12,27 @@
 #include <obs-module.h>
 #include <graphics/matrix4.h>
 
-ModifyAppearence::ModifyAppearence()
+ModifyAppearance::ModifyAppearance()
 {
 
 }
 
-ModifyAppearence::~ModifyAppearence()
+ModifyAppearance::~ModifyAppearance()
 {
 
 }
 
 /*static*/
-const char* ModifyAppearence::obs_getname(void* unused)
+const char* ModifyAppearance::obs_getname(void* unused)
 {
 	UNUSED_PARAMETER(unused);
 	return "Modify Appearence";
 }
 
 /*static*/
-void* ModifyAppearence::obs_create(obs_data_t* settings, obs_source_t* source)
+void* ModifyAppearance::obs_create(obs_data_t* settings, obs_source_t* source)
 {
-	blog(LOG_INFO, "ModifyAppearence::create");
+	blog(LOG_INFO, "ModifyAppearance::create");
 
 	ModData* data = new ModData;
 	data->source = source;
@@ -43,14 +43,14 @@ void* ModifyAppearence::obs_create(obs_data_t* settings, obs_source_t* source)
 	auto onnxInstance = Onnx::instance().get(source);
 	onnxInstance->init((std::filesystem::path(obs_get_module_binary_path(obs_current_module())).parent_path() / L"SelfieMulticlass.onnx").wstring());
 
-	ModifyAppearence::obs_update_settings((void* )data, settings);
+	ModifyAppearance::obs_update_settings((void* )data, settings);
 	return (void*)data;
 }
 
 /*static*/
-void ModifyAppearence::obs_destroy(void* data)
+void ModifyAppearance::obs_destroy(void* data)
 {
-	blog(LOG_INFO, "ModifyAppearence::destroy");
+	blog(LOG_INFO, "ModifyAppearance::destroy");
 
 	ModData* modData = (ModData*)data;
 	auto onnxInstance = Onnx::instance().get(modData->source);
@@ -72,7 +72,7 @@ void ModifyAppearence::obs_destroy(void* data)
 }
 
 /*static*/
-obs_properties_t* ModifyAppearence::obs_properties(void* data)
+obs_properties_t* ModifyAppearance::obs_properties(void* data)
 {
 	UNUSED_PARAMETER(data);
 	obs_properties_t* props = obs_properties_create();
@@ -103,7 +103,7 @@ obs_properties_t* ModifyAppearence::obs_properties(void* data)
 }
 
 /*static*/
-void ModifyAppearence::obs_update_settings(void* data, obs_data_t* settings)
+void ModifyAppearance::obs_update_settings(void* data, obs_data_t* settings)
 {
 	ModData* modData = (ModData* )data;
 
@@ -117,25 +117,25 @@ void ModifyAppearence::obs_update_settings(void* data, obs_data_t* settings)
 }
 
 /*static*/
-void ModifyAppearence::obs_activate(void* data)
+void ModifyAppearance::obs_activate(void* data)
 {
 
 }
 
 /*static*/
-void ModifyAppearence::obs_deactivate(void* data)
+void ModifyAppearance::obs_deactivate(void* data)
 {
 
 }
 
 /*static*/
-void ModifyAppearence::obs_video_tick(void* data, float seconds)
+void ModifyAppearance::obs_video_tick(void* data, float seconds)
 {
 	UNUSED_PARAMETER(seconds);
 	ModData* modData = (ModData* )data;
 }
 
-void ModifyAppearence::obs_video_render(void *data, gs_effect_t *_effect)
+void ModifyAppearance::obs_video_render(void *data, gs_effect_t *_effect)
 {
 	UNUSED_PARAMETER(_effect);
 	ModData *modData = (ModData *)data;
@@ -144,7 +144,7 @@ void ModifyAppearence::obs_video_render(void *data, gs_effect_t *_effect)
 		return;
 
 	auto onnxInstance = Onnx::instance().get(modData->source);
-	onnxInstance->update(modData->source, modData->texrender, modData->stagesurface, ModifyAppearence::instance().m_cats);
+	onnxInstance->update(modData->source, modData->texrender, modData->stagesurface, ModifyAppearance::instance().m_cats);
 
 	obs_source_video_render(obs_filter_get_target(modData->source));
 
@@ -168,7 +168,7 @@ void ModifyAppearence::obs_video_render(void *data, gs_effect_t *_effect)
 	if (!obs_source_process_filter_begin_with_color_space(modData->source, format, source_space, OBS_ALLOW_DIRECT_RENDERING))
 		return;
 
-	for (auto& cat : ModifyAppearence::instance().m_cats)
+	for (auto& cat : ModifyAppearance::instance().m_cats)
 	{
 		gs_blend_state_push();
 		gs_reset_blend_state();
@@ -194,7 +194,7 @@ void ModifyAppearence::obs_video_render(void *data, gs_effect_t *_effect)
 }
 
 /*static*/
-bool ModifyAppearence::show_only_selected_group(obs_properties_t* props, obs_property_t* list, obs_data_t* settings)
+bool ModifyAppearance::show_only_selected_group(obs_properties_t* props, obs_property_t* list, obs_data_t* settings)
 {
 	const char* sel = obs_data_get_string(settings, "segmentation_category");
 	bool hair = strcmp(sel, "hair") == 0;
@@ -223,7 +223,7 @@ bool ModifyAppearence::show_only_selected_group(obs_properties_t* props, obs_pro
 }
 
 /*static*/
-void ModifyAppearence::obs_defaults(obs_data_t *settings)
+void ModifyAppearance::obs_defaults(obs_data_t *settings)
 {
 	auto applCatDefaults = [&](const std::string& suffix)
 	{
@@ -240,7 +240,7 @@ void ModifyAppearence::obs_defaults(obs_data_t *settings)
 }
 
 /*static*/
-void ModifyAppearence::add_category_controls(obs_properties_t* props, const char* group_name, const char* group_label, const char* suffix)
+void ModifyAppearance::add_category_controls(obs_properties_t* props, const char* group_name, const char* group_label, const char* suffix)
 {
 	obs_properties_t* grp = obs_properties_create();
 	obs_properties_add_group(props, group_name, group_label, OBS_GROUP_NORMAL, grp);
@@ -253,7 +253,7 @@ void ModifyAppearence::add_category_controls(obs_properties_t* props, const char
 }
 
 /*static*/
-void ModifyAppearence::read_cat(obs_data_t* s, const char* suf, CategorySettings& out)
+void ModifyAppearance::read_cat(obs_data_t* s, const char* suf, CategorySettings& out)
 {
 	obs_enter_graphics();
 	gs_effect_destroy(out.maskEffect);
@@ -271,7 +271,7 @@ void ModifyAppearence::read_cat(obs_data_t* s, const char* suf, CategorySettings
 }
 
 /*static*/
-gs_color_space ModifyAppearence::obs_video_get_color_space(void *data, size_t count, const enum gs_color_space *preferred_spaces)
+gs_color_space ModifyAppearance::obs_video_get_color_space(void *data, size_t count, const enum gs_color_space *preferred_spaces)
 {
 	UNUSED_PARAMETER(count);
 	UNUSED_PARAMETER(preferred_spaces);

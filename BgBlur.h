@@ -12,12 +12,6 @@
 class BgBlur
 {
 public:
-	static BgBlur& instance()
-	{
-		static BgBlur a;
-		return a;
-	}
-
 	static void obs_activate(void* data);
 	static void obs_destroy(void* data);
 	static void obs_defaults(obs_data_t* settings);
